@@ -15,15 +15,13 @@ BigBlueButtons create-API allows the passing of metadata for each meeting. This 
     - Default: Meeting ID or None (Configurable)
 - opencast-dc-creator
     - Description: The person primary reponsible for the creation of the event
-    - May appear multiple times *** Geht das?
-    - Default: None or Every moderator (Configurable)
+    - Default: None
 - opencast-dc-isPartOf
     - Desctiption: Series identifier of which the event is part of
     - Default: None
 - opencast-dc-contributor
     - Description: People contributing to the event
-    - May appear multiple times *** Geht das?
-    - Default: None or every viewer (Configurable)
+    - Default: None
 - opencast-dc-subject
     - Description: A topic of the event
     - Default: None
