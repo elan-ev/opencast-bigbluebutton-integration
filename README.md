@@ -23,16 +23,16 @@ BigBlueButtons create-API allows the passing of metadata for each meeting. This 
 - opencast-dc-contributor
     - Description: People contributing to the event
     - May appear multiple times *** Geht das?
-    - Default: None or every vierer (Configurable)
+    - Default: None or every viewer (Configurable)
 - opencast-dc-subject
     - Description: A topic of the event
     - Default: None
 - opencast-dc-language
-    - Description: The primary language
+    - Description: The primary language. Language codes at the [Opencast repository](https://github.com/opencast/opencast/blob/develop/etc/listproviders/languages.properties).
     - Default: None
 - opencast-dc-description
     - Description: Description of the event
-    - Default: None or shared notes
+    - Default: None or shared notes (Configurable)
 - opencast-dc-spatial
     - Description: Location of the event
     - Default: "BigBlueButton"
@@ -43,7 +43,7 @@ BigBlueButtons create-API allows the passing of metadata for each meeting. This 
     - Description: Rights holder of the resulting video
     - Default: None
 - opencast-dc-license
-    - Description: License of the resulting video
+    - Description: License of the resulting video. License codes at the [Opencast repository](https://github.com/opencast/opencast/blob/develop/etc/listproviders/licenses.properties).
     - Default: None
 - opencast-dc-publisher
     - Description: An entity responsible for making the resource available.
