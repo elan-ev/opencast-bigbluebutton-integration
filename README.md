@@ -17,7 +17,7 @@ BigBlueButtons create-API allows the passing of metadata for each meeting. This 
     - Description: The person primary reponsible for the creation of the event
     - Default: None
 - opencast-dc-isPartOf
-    - Desctiption: Series identifier of which the event is part of
+    - Description: Series identifier of which the event is part of
     - Default: None
 - opencast-dc-contributor
     - Description: People contributing to the event
@@ -53,7 +53,7 @@ User access data
 
 - opencast-acl-user-id
     - user gets read and write access via acl
-    - Default: Meeting owner ID
+    - Default: None
 - opencast-acl-read-roles
     - Example: ROLE_USER,ROLE_XY
 - opencast-acl-write-roles
