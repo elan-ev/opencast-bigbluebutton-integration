@@ -84,7 +84,7 @@ If a UID for a series is provided, but that series does not exist yet, it is pos
     - Default: None
 - opencast-series-dc-description
     - Description: Description of the event
-    - Default: None or shared notes (Configurable)
+    - Default: None
 - opencast-series-dc-rightsHolder
     - Description: Rights holder of the resulting video
     - Default: None
