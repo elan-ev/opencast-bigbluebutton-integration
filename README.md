@@ -72,14 +72,11 @@ BigBlueButtons create-API allows the passing of metadata for each meeting. This 
 Series Metadata Definition
 ----------------
 
-If a UID for a series is provided, but that series does not exist yet, it is possible for a new series to be created with which the recording can then be associated. The list below defines which metadata can be passed along to the series.
+If a UID for a series is provided in `opencast-dc-isPartOf`, but that series does not exist yet, it is possible for a new series to be created with which the recording can then be associated. The list below defines which metadata can be passed along to the series.
 
 - opencast-series-dc-title
     - Description: Title of the Opencast series
     - Default: Room name
-- opencast-series-dc-identifier
-    - Description: Media package and unique series identifier
-    - Default: Meeting ID or None (Configurable)
 - opencast-series-dc-creator
     - Description: The persons primary reponsible for the creation of the event
     - Default: None
@@ -108,6 +105,7 @@ If a UID for a series is provided, but that series does not exist yet, it is pos
 
 #### Series user access data
 
+An addition to the ACLs of the meeting, the series can have its own ACLs as well.
 
 - opencast-series-acl-user-id
     - user gets read and write access via acl
