@@ -1,5 +1,15 @@
-# Opencast BigBlueButton Integration
-Documentation for sending recordings from BigBlueButton to Opencast
+Opencast BigBlueButton Integration
+==================================
+
+_Documentation for sending recordings from BigBlueButton to Opencast._
+
+This repository contains documentation and BigBlueButton processing scripts suitable for different scenarios.
+Make sure to read through the different options and evaluate which integration best fits your use-case.
+
+- [Pust-publish Integration](post-publish) – This integration leverages the recording processing capabilities of BigBlueButton to then transfer the processed video files to Opencast.
+  The advantage is that this integration is relatively small and easy to use. The downside is that a lot of the processing happens on the BigBlueButton servers,
+  taking away processing power from your next video conference.
+
 
 Dublincore Metadata Definition
 -------------------
