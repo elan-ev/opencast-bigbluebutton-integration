@@ -19,7 +19,7 @@ $oc_password = '{{opencast_password}}'
 
 # Workflow to use for ingest
 # oc_workflow = 'schedule-and-upload'
-$oc_workflow = 'bbb-upload'
+$oc_workflow = 'bbb-upload' #'test-multiple-webcams' #'bbb-upload'
 
 # Booleans for processing metadata. False means 'nil' is used as fallback
 # Suggested default: false
@@ -119,7 +119,11 @@ end
 def parseTimeStampsPresentation(doc, eventName, resultArray)
   doc.xpath("//event[@eventname='#{eventName}']").each do |item|
     newItem = Hash.new
-    newItem["filename"] = "slide1.svg"  # Assume slide 1
+    if(item.at_xpath("slide"))
+      newItem["filename"] = "slide#{item.at_xpath("slide").content.to_i + 1}.svg" # Add 1 to fix index
+    else
+      newItem["filename"] = "slide1.svg"  # Assume slide 1
+    end
     newItem["timestamp"] = item.at_xpath("timestampUTC").content.to_i
     newItem["presentationName"] = item.at_xpath("presentationName").content
     resultArray.push(newItem)
@@ -154,7 +158,6 @@ def convertSlidesToVideo(presentationSlidesStart)
       originalLocation = File.join(PRESENTATION_PATH, presentationName, "svgs", filename)
       # Create path to save conversion to
       dirname = File.join(TMP_PATH, presentationName, "svgs")
-      BigBlueButton.logger.info( "Dirname: #{dirname}")
       unless File.directory?(dirname)
         FileUtils.mkdir_p(dirname)
       end
@@ -177,7 +180,9 @@ def convertSlidesToVideo(presentationSlidesStart)
 
   # Rename stored filenames in accordance with the conversion
   presentationSlidesStart.each_with_index do |item, i|
+    BigBlueButton.logger.info( "Renamed #{presentationSlidesStart[i]["filename"]}")
     presentationSlidesStart[i]["filename"] = changeFileExtensionTo(item["filename"], "mp4")
+    BigBlueButton.logger.info( "To #{presentationSlidesStart[i]["filename"]}")
   end
 
   return presentationSlidesStart
