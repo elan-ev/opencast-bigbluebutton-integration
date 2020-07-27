@@ -265,6 +265,7 @@ def createDublincore(dc_data)
   node_set << nokogiri_node_creator(doc, 'dcterms:rightsHolder', dc_data[:rightsHolder])  if dc_data[:rightsHolder]
   node_set << nokogiri_node_creator(doc, 'dcterms:license', dc_data[:license])            if dc_data[:license]
   node_set << nokogiri_node_creator(doc, 'dcterms:publisher', dc_data[:publisher])        if dc_data[:publisher]
+  node_set << nokogiri_node_creator(doc, 'dcterms:temporal', dc_data[:temporal])          if dc_data[:temporal]
 
   # Add nodes
   doc.root.add_child(node_set)
@@ -356,7 +357,7 @@ end
 #
 # return: array of hashes
 #
-def getDcMetadataDefinition(metadata, meetingStartTime)
+def getDcMetadataDefinition(metadata, meetingStartTime, meetingEndTime)
   dc_metadata_definition = []
   dc_metadata_definition.push( { :symbol   => :title,
                                  :fullName => "opencast-dc-title",
@@ -381,7 +382,8 @@ def getDcMetadataDefinition(metadata, meetingStartTime)
                                  :fallback => nil})
   dc_metadata_definition.push( { :symbol   => :description,
                                  :fullName => "opencast-dc-description",
-                                 :fallback => $useSharedNotesForDescriptionFallback ? sharedNotesToString(SHARED_NOTES_PATH) : nil})
+                                 :fallback => $useSharedNotesForDescriptionFallback ? 
+                                              sharedNotesToString(SHARED_NOTES_PATH) : nil})
   dc_metadata_definition.push( { :symbol   => :spatial,
                                  :fullName => "opencast-dc-spatial",
                                  :fallback => "BigBlueButton"})
@@ -397,6 +399,11 @@ def getDcMetadataDefinition(metadata, meetingStartTime)
   dc_metadata_definition.push( { :symbol   => :publisher,
                                  :fullName => "opencast-dc-publisher",
                                  :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :temporal,
+                                 :fullName => "opencast-dc-temporal",
+                                 :fallback => "start=#{Time.at(meetingStartTime / 1000).to_datetime}; 
+                                               end=#{Time.at(meetingEndTime / 1000).to_datetime}; 
+                                               scheme=W3C-DTF"})                                 
   return dc_metadata_definition
 end
 
@@ -636,7 +643,7 @@ tracks = []                   # Array of hashes[flavor, starttime, path]
 # Constants
 DEFAULT_REQUEST_TIMEOUT = 10                                  # Http request timeout in seconds
 START_WORKFLOW_REQUEST_TIMEOUT = 6000                         # Specific timeout; Opencast runs MediaInspector on every file, which can take quite a while
-CUTTING_MARKS_FLAVOR = "smil/times"
+CUTTING_MARKS_FLAVOR = "json/times"
 
 VIDEO_PATH = File.join(archived_files, 'video', meeting_id)    # Path defined by BBB
 AUDIO_PATH = File.join(archived_files, 'audio')                # Path defined by BBB
@@ -723,7 +730,7 @@ tracks = collectFileInformation(AUDIO_PATH, tracks, 'presentation/source', audio
 # Add screen share tracks
 tracks = collectFileInformation(DESKSHARE_PATH, tracks, 'presentation/source', deskshareStart, real_start_time)
 # Add the previously generated tracks for presentation slides
-# Use the converted files stored in tmp!
+Use the converted files stored in tmp!
 presentationSlidesStart.each do |startItem|
   tracks.push ( { "flavor": 'presentation/source',
                   "startTime": startItem["timestamp"] - real_start_time,
@@ -737,13 +744,13 @@ if(tracks.length == 0)
   exit 0
 end
 
-# Sort tracks in ascending order by their startTime, as is required by PartialImportWorkflow
+# Sort tracks in ascending order by their startTime, as is required by PartialImportWOH
 tracks = tracks.sort_by { |k| k[:startTime] }
 BigBlueButton.logger.info( "Sorted tracks: ")
 BigBlueButton.logger.info( tracks)
 
 # Create metadata file dublincore
-dc_data = parseDcMetadata(meeting_metadata, getDcMetadataDefinition(meeting_metadata, real_start_time))
+dc_data = parseDcMetadata(meeting_metadata, getDcMetadataDefinition(meeting_metadata, recordingStart.first, recordingStop.last))
 dublincore = createDublincore(dc_data)
 BigBlueButton.logger.info( "Dublincore: \n" + dublincore.to_s)
 
