@@ -7,7 +7,7 @@
   </tags>
   <displayOrder>1000</displayOrder>
   <description>
-    Knock! Knock! Who's there? Candice. Candice who? Candice door open, or am I stuck out here?
+    A workflow that is used for Ingests from BigBlueButton, adapted from the fast workflow.
   </description>
 
   <configuration_panel>
@@ -85,14 +85,22 @@
 
     <!--    <operation-->
     <!--        id="cut-marks-to-smil"-->
-    <!--        description="JA LOL"-->
+    <!--        description="Process ingested cutmarks by applying them to current tracks""-->
     <!--        fail-on-error="true"-->
     <!--        exception-handler-workflow="partial-error">-->
     <!--      <configurations>-->
-    <!--        <configuration key="source-presenter-flavor">presenter/prepared</configuration>-->
-    <!--        <configuration key="source-presentation-flavor">presentation/prepared</configuration>-->
+    <!--        <configuration key="source-media-flavors">presenter/source,presentation/source</configuration>-->
     <!--        <configuration key="source-json-flavor">json/times</configuration>-->
-    <!--        <configuration key="target-smil-flavor">smil/precutting</configuration>-->
+    <!--        <configuration key="target-smil-flavor">smil/cutmarks</configuration>-->
+    <!--      </configurations>-->
+    <!--    </operation>-->
+
+    <!--    <operation-->
+    <!--        id="clone"-->
+    <!--        exception-handler-workflow="partial-error">-->
+    <!--      <configurations>-->
+    <!--        <configuration key="source-flavor">smil/cutmarks</configuration>-->
+    <!--        <configuration key="target-flavor">smil/cutting</configuration>-->
     <!--      </configurations>-->
     <!--    </operation>-->
 
@@ -104,7 +112,7 @@
     <!--      <configurations>-->
     <!--        <configuration key="source-flavors">*/prepared</configuration>-->
     <!--        <configuration key="skipped-flavors">*/prepared</configuration>-->
-    <!--        <configuration key="smil-flavors">smil/precutting</configuration>-->
+    <!--        <configuration key="smil-flavors">smil/cutmarks</configuration>-->
     <!--        <configuration key="target-smil-flavor">smil/cutting</configuration>-->
     <!--        <configuration key="target-flavor-subtype">trimmed</configuration>-->
     <!--      </configurations>-->
