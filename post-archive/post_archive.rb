@@ -730,7 +730,7 @@ tracks = collectFileInformation(AUDIO_PATH, tracks, 'presentation/source', audio
 # Add screen share tracks
 tracks = collectFileInformation(DESKSHARE_PATH, tracks, 'presentation/source', deskshareStart, real_start_time)
 # Add the previously generated tracks for presentation slides
-Use the converted files stored in tmp!
+# Use the converted files stored in tmp!
 presentationSlidesStart.each do |startItem|
   tracks.push ( { "flavor": 'presentation/source',
                   "startTime": startItem["timestamp"] - real_start_time,
