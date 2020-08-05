@@ -19,7 +19,7 @@ $oc_password = '{{opencast_password}}'
 
 # Workflow to use for ingest
 # oc_workflow = 'schedule-and-upload'
-$oc_workflow = 'bbb-upload' #'test-multiple-webcams' #'bbb-upload'
+$oc_workflow = 'bbb-upload'
 
 # Booleans for processing metadata. False means 'nil' is used as fallback
 # Suggested default: false
@@ -94,7 +94,7 @@ end
 #
 # return: recordingStart, recordingStop arrays with timestamps
 #
-def parseTimeStampsRecording(doc, eventName, recordingStart, recordingStop)
+def parseTimeStampsRecording(doc, eventName, recordingStart, recordingStop, real_end_time)
   # Parse timestamps for Recording
   doc.xpath("//event[@eventname='#{eventName}']").each do |item|
     if item.at_xpath("status").content == "true"
@@ -102,6 +102,10 @@ def parseTimeStampsRecording(doc, eventName, recordingStart, recordingStop)
     else
       recordingStop.push(item.at_xpath("timestampUTC").content.to_i)
     end
+  end
+
+  if recordingStart.length > recordingStop.length
+    recordingStop.push(real_end_time)
   end
 
   return recordingStart, recordingStop
@@ -139,6 +143,10 @@ def changeFileExtensionTo(filename, extension)
   return "#{File.basename(filename, File.extname(filename))}.#{extension}"
 end
 
+def makeEven(number)
+  return number % 2 == 0 ? number : number + 1
+end
+
 #
 # Convert SVGs to MP4s
 #
@@ -165,7 +173,7 @@ def convertSlidesToVideo(presentationSlidesStart)
       # Convert to png
       image = MiniMagick::Image.open(originalLocation)
       image.format 'png'
-      image.resize('1920x1080')           # Specify size to avoid accidental down-scaling
+      image.resize("#{makeEven(image.width)}x#{makeEven(image.height)}")           # Specify size to avoid accidental down-scaling
       pathToImage = File.join(dirname, changeFileExtensionTo(filename, "png"))
       image.write pathToImage
 
@@ -174,7 +182,7 @@ def convertSlidesToVideo(presentationSlidesStart)
       BigBlueButton.logger.info( "Converting #{pathToImage} to #{finalLocation}")
       # Convert to video
       # Scales the output to be divisible by 2
-      system "ffmpeg -loglevel quiet -nostdin -nostats -r 30 -i #{pathToImage} -vf scale=-2:1080 #{finalLocation}"
+      system "ffmpeg -loglevel quiet -nostdin -nostats -r 30 -i #{pathToImage} #{finalLocation}"
     end
   end
 
@@ -288,12 +296,7 @@ def createCuttingMarksJSONAtPath(path, recordingStart, recordingStop, real_start
 
   index = 0
   recordingStart.each do |startStamp|
-    stopStamp = 0
-    if index < recordingStop.length
-      stopStamp = recordingStop[index]
-    else
-      stopStamp = real_end_time
-    end
+    stopStamp = recordingStop[index]
 
     tmpTimes.push( {
       "begin" => startStamp - real_start_time,
@@ -692,7 +695,7 @@ webcamStart = parseTimeStamps(doc, 'StartWebRTCShareEvent', webcamStart)
 # Get audio recording start timestamps
 audioStart = parseTimeStamps(doc, 'StartRecordingEvent', audioStart)
 # Get cut marks
-recordingStart, recordingStop = parseTimeStampsRecording(doc, 'RecordStatusEvent', recordingStart, recordingStop)
+recordingStart, recordingStop = parseTimeStampsRecording(doc, 'RecordStatusEvent', recordingStart, recordingStop, real_end_time)
 # Get presentation slide start stamps
 presentationSlidesStart = parseTimeStampsPresentation(doc, 'SharePresentationEvent', presentationSlidesStart) # Grab a timestamp for the beginning
 presentationSlidesStart = parseTimeStampsPresentation(doc, 'GotoSlideEvent', presentationSlidesStart) # Grab timestamps from Goto events
@@ -706,6 +709,10 @@ if ($onlyIngestIfRecordButtonWasPressed && recordingStart.length == 0)
   BigBlueButton.logger.info( "Recording Button was not pressed, aborting...")
   cleanup(TMP_PATH, meeting_id)
   exit 0
+# Or instead assume that everything should be recorded
+elsif (!$onlyIngestIfRecordButtonWasPressed && recordingStart.length == 0)
+  recordingStart.push(real_start_time)
+  recordingStop.push(real_end_time)
 end
 
 #
@@ -758,7 +765,10 @@ BigBlueButton.logger.info( "Dublincore: \n" + dublincore.to_s)
 createCuttingMarksJSONAtPath(CUTTING_JSON_PATH, recordingStart, recordingStop, real_start_time, real_end_time)
 
 # Create ACLs at path
-File.write(ACL_PATH, createAcl(parseAclMetadata(meeting_metadata, getAclMetadataDefinition())))
+aclData = parseAclMetadata(meeting_metadata, getAclMetadataDefinition())
+if (!aclData.nil? && !aclData.empty?)
+  File.write(ACL_PATH, createAcl(parseAclMetadata(meeting_metadata, getAclMetadataDefinition())))
+end
 
 
 # Create series if it does not exist
@@ -819,16 +829,20 @@ BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 mediapackage = requestIngestAPI(:post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
                 {:mediaPackage => mediapackage,
                  :flavor => CUTTING_MARKS_FLAVOR,
-                 :body => File.open(File.join(CUTTING_JSON_PATH), 'rb')})
+                 :body => File.open(CUTTING_JSON_PATH, 'rb')})
                  #:body => File.open(File.join(archived_files, "cutting.json"), 'rb')})
 
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 # Add ACL
-mediapackage = requestIngestAPI(:post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
-                {:mediaPackage => mediapackage,
-                 :flavor => "security/xacml+episode",
-                 :body => File.open(File.join(ACL_PATH), 'rb') })
-BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+if (File.file?(ACL_PATH))
+  mediapackage = requestIngestAPI(:post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
+                  {:mediaPackage => mediapackage,
+                  :flavor => "security/xacml+episode",
+                  :body => File.open(ACL_PATH, 'rb') })
+  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+else
+  BigBlueButton.logger.info( "No ACL found, skipping adding ACL.")
+end               
 # Ingest and start workflow
 response = requestIngestAPI(:post, '/ingest/ingest/' + $oc_workflow, START_WORKFLOW_REQUEST_TIMEOUT,
                 { :mediaPackage => mediapackage })
