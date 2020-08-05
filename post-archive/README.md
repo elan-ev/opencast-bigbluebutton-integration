@@ -50,6 +50,7 @@ Limitations & Take Cares
 - The recording is published with a few default metadata values. To set further metadata, the frontend which creates the BBB-Meeting will need pass them when calling the `/create` API, so that BBB then may pass them on to Opencast. An overview over the possible metadata can be found [here](https://github.com/elan-ev/opencast-bigbluebutton-integration).
 
 Troubleshooting
+--------
 1. Opencast didn't get any data
 	- Check the logs
 		- `/var/log/bigbluebutton/bbb-rap-worker.log`, for potential exceptions
