@@ -10,7 +10,7 @@ So we send all the raw recording data from BBB to Opencast and process them with
 
 Requirements
 --------
-- Opencast r/8.x (May 8, 2020 or later!)
+- Opencast 8.4 (or later)
 - BigBlueButton 2.2 (or later)
 	- Ruby gems: rest-client, fileutils, mini_magick
 
