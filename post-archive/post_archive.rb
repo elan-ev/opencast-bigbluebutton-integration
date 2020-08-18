@@ -19,7 +19,7 @@ $oc_password = '{{opencast_password}}'
 
 # Workflow to use for ingest
 # oc_workflow = 'schedule-and-upload'
-$oc_workflow = 'test-tag' #'bbb-upload'
+$oc_workflow = 'bbb-upload'
 
 # Booleans for processing metadata. False means 'nil' is used as fallback
 # Suggested default: false
