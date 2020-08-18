@@ -19,11 +19,10 @@ $oc_password = '{{opencast_password}}'
 
 # Workflow to use for ingest
 # oc_workflow = 'schedule-and-upload'
-$oc_workflow = 'bbb-upload'
+$oc_workflow = 'test-tag' #'bbb-upload'
 
 # Booleans for processing metadata. False means 'nil' is used as fallback
 # Suggested default: false
-$useMeetingIdForIdentifierFallback = {{opencast_useMeetingIdFallback}}
 $useSharedNotesForDescriptionFallback = {{opencast_useSharedNotesFallback}}
 
 # Default roles, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
@@ -366,8 +365,8 @@ def getDcMetadataDefinition(metadata, meetingStartTime, meetingEndTime)
                                  :fullName => "opencast-dc-title",
                                  :fallback => metadata['meetingname']})
   dc_metadata_definition.push( { :symbol   => :identifier,
-                                 :fullName => "opencast-dc-identifier",
-                                 :fallback => $useMeetingIdForIdentifierFallback ? metadata['meetingid'] : nil})
+                                 :fullName => "opencast-dc-identifier", 
+                                 :fallback => nil})
   dc_metadata_definition.push( { :symbol   => :creator,
                                  :fullName => "opencast-dc-creator",
                                  :fallback => nil})
@@ -774,7 +773,8 @@ end
 # Create series if it does not exist
 # If we got a seriesId (from which metadata?)
 createSeriesId = meeting_metadata["opencast-dc-ispartof"]
-if ($createNewSeriesIfItDoesNotYetExist && !createSeriesId.to_s.empty?)      
+if ($createNewSeriesIfItDoesNotYetExist && !createSeriesId.to_s.empty?)
+  BigBlueButton.logger.info( "Creating a new series...")
   # GET does series exists. Webrequest will fail if it does not exist.
   seriesExists = false
   seriesFromOc = requestIngestAPI(:get, '/series/allSeriesIdTitle.json', DEFAULT_REQUEST_TIMEOUT, {})
@@ -807,8 +807,16 @@ end
 # Create a mediapackage and ingest it
 #
 
-# Create
-mediapackage = requestIngestAPI(:get, '/ingest/createMediaPackage', DEFAULT_REQUEST_TIMEOUT, {})
+# Create Mediapackage
+uuid_regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+if !dc_data[:identifier].to_s.empty? && uuid_regex.match?(dc_data[:identifier].to_s.downcase)
+  mediapackage = requestIngestAPI(:put, '/ingest/createMediaPackageWithID/' + dc_data[:identifier], DEFAULT_REQUEST_TIMEOUT,{})
+else
+  if !dc_data[:identifier].to_s.empty? && !uuid_regex.match?(dc_data[:identifier].to_s.downcase)
+    BigBlueButton.logger.warn(" The given identifier #{dc_data[:identifier]} is not a valid UUID. Using generated UUID instead.")
+  end
+  mediapackage = requestIngestAPI(:get, '/ingest/createMediaPackage', DEFAULT_REQUEST_TIMEOUT, {})
+end
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 # Add Partial Track
 tracks.each do |track|
