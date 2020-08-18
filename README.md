@@ -24,8 +24,8 @@ BigBlueButtons create-API allows the passing of metadata for each meeting. This 
     - Description: Title of the Opencast episode
     - Default: Room name
 - opencast-dc-identifier
-    - Description: Media package and event identifier
-    - Default: Meeting ID or None (Configurable)
+    - Description: Media package and event identifier. Has to be a valid UUID.
+    - Default: None
 - opencast-dc-creator
     - Description: The person primary reponsible for the creation of the event
     - Default: None
