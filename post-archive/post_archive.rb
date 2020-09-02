@@ -25,14 +25,24 @@ $oc_workflow = 'bbb-upload'
 # Suggested default: false
 $useSharedNotesForDescriptionFallback = {{opencast_useSharedNotesFallback}}
 
-# Default roles, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
+# Default roles for the event, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
 # Suggested default: ""
-$defaultRolesWithReadPerm = '{{opencast_rolesWithReadPerm}}'
+$defaultRolesWithReadPerm = "ROLE_OAUTH_USER"
 $defaultRolesWithWritePerm = '{{opencast_rolesWithWritePerm}}'
 
 # Whether a new series should be created if the given one does not exist yet
 # Suggested default: false
 $createNewSeriesIfItDoesNotYetExist = '{{opencast_createNewSeriesIfItDoesNotYetExist}}'
+
+# Default roles for the series, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
+# Suggested default: ""
+$defaultSeriesRolesWithReadPerm = "ROLE_OAUTH_USER"
+$defaultSeriesRolesWithWritePerm = '{{opencast_seriesRolesWithWritePerm}}'
+
+# The given dublincore identifier will also passed to the dublincore source tag,
+# even if the given identifier cannot be used as the actual identifier for the vent
+# Suggested default: false
+$passIdentifierAsDcSource = true
 
 # Flow control booleans
 # Suggested default: false
@@ -273,6 +283,7 @@ def createDublincore(dc_data)
   node_set << nokogiri_node_creator(doc, 'dcterms:license', dc_data[:license])            if dc_data[:license]
   node_set << nokogiri_node_creator(doc, 'dcterms:publisher', dc_data[:publisher])        if dc_data[:publisher]
   node_set << nokogiri_node_creator(doc, 'dcterms:temporal', dc_data[:temporal])          if dc_data[:temporal]
+  node_set << nokogiri_node_creator(doc, 'dcterms:source', dc_data[:source])              if dc_data[:source]
 
   # Add nodes
   doc.root.add_child(node_set)
@@ -405,7 +416,11 @@ def getDcMetadataDefinition(metadata, meetingStartTime, meetingEndTime)
                                  :fullName => "opencast-dc-temporal",
                                  :fallback => "start=#{Time.at(meetingStartTime / 1000).to_datetime}; 
                                                end=#{Time.at(meetingEndTime / 1000).to_datetime}; 
-                                               scheme=W3C-DTF"})                                 
+                                               scheme=W3C-DTF"})
+  dc_metadata_definition.push( { :symbol   => :source,
+                                 :fullName => "opencast-dc-source",
+                                 :fallback => $passIdentifierAsDcSource ?
+                                              metadata["opencast-dc-identifier"] : nil })                                                                               
   return dc_metadata_definition
 end
 
@@ -466,13 +481,49 @@ def parseDcMetadata(metadata, dc_metadata_definition)
 
   dc_metadata_definition.each do |definition|
     dc_data[definition[:symbol]] = parseMetadataFieldOrFallback(metadata, definition[:fullName], definition[:fallback])
-    # StudIP - Legacy
-    if definition[:symbol] === :isPartOf
-      dc_data[:isPartOf] = metadata["opencast-series-id"] if dc_data[:isPartOf].to_s.empty?
-    end
   end
 
   return dc_data
+end
+
+#
+# Checks if the given identifier is valid to be used for an Opencast event
+#
+# identifier: string, to be used as the UID for an Opencast event
+#
+# Returns the identifier if it is valid, nil if not
+#
+def checkEventIdentifier(identifier)
+  # Check for nil & empty
+  if identifier.to_s.empty?
+    return nil
+  end
+
+  # Check for UUID conformity
+  uuid_regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  if !(identifier.to_s.downcase =~ uuid_regex)
+    BigBlueButton.logger.info( "The given identifier <#{identifier}> is not a valid UUID. Will be using generated UUID instead.")
+    return nil
+  end
+
+  # Check for existence in Opencast
+  existsInOpencast = true 
+  begin
+    response = RestClient::Request.new(
+      :method => :get,
+      :url => $oc_server + "/api/events/" + identifier,
+      :user => $oc_user,
+      :password => $oc_password,
+    ).execute
+  rescue RestClient::Exception => e
+    existsInOpencast = false
+  end
+  if existsInOpencast
+    BigBlueButton.logger.info( "The given identifier <#{identifier}> already exists within Opencast. Will be using generated UUID instead.")
+    return nil
+  end
+
+  return identifier
 end
 
 #
@@ -504,14 +555,14 @@ end
 #
 # return array of hash (symbol => string, symbol => string)
 #
-def parseAclMetadata(metadata, acl_metadata_definition)
+def parseAclMetadata(metadata, acl_metadata_definition, defaultReadRoles, defaultWriteRoles)
   acl_data = []
 
   # Read from global, configured-by-user variable
-  $defaultRolesWithReadPerm.to_s.split(",").each do |role|
+  defaultReadRoles.to_s.split(",").each do |role|
     acl_data.push( { :user => role, :permission => "read" } )
   end
-  $defaultRolesWithWritePerm.to_s.split(",").each do |role|
+  defaultWriteRoles.to_s.split(",").each do |role|
     acl_data.push( { :user => role, :permission => "write" } )
   end
 
@@ -571,6 +622,157 @@ def createAcl(roles)
   end
 
   return builder.to_xml
+end
+
+#
+# Creates a xml using the given role information
+#
+# roles: array of hash (symbol => string, symbol => string), containing user role and permission
+#
+# returns: string, the xml
+#
+def createSeriesAcl(roles)
+  header = Nokogiri::XML('<?xml version = "1.0" encoding = "UTF-8" standalone ="yes"?>')
+  builder = Nokogiri::XML::Builder.with(header) do |xml|
+    xml.acl('xmlns' => 'http://org.opencastproject.security') {
+      roles.each do |role|
+        xml.ace {
+          xml.action { xml.text(role[:permission]) }
+          xml.allow { xml.text('true') }
+          xml.role { xml.text(role[:user]) }
+        }
+      end
+    }
+  end
+
+  return builder.to_xml
+end
+
+#
+# Recursively check if 2 Nokogiri nodes are the same
+# Does not check for attributes
+#
+# node1: The first Nokogiri node
+# node2: The second Nokogori node
+#
+# returns: boolean, true if the nodes are equal
+#
+def sameNodes?(node1, node2, truthArray=[])
+	if node1.nil? || node2.nil?
+		return false
+	end
+	if node1.name != node2.name
+		return false
+	end
+  if node1.text != node2.text
+          return false
+  end
+	node1Attrs = node1.attributes
+	node2Attrs = node2.attributes
+	node1Kids = node1.children
+	node2Kids = node2.children
+	node1Kids.zip(node2Kids).each do |pair|
+		truthArray << sameNodes?(pair[0],pair[1])
+	end
+	# if every value in the array is true, then the nodes are equal
+	return truthArray.all?
+end
+
+#
+# Extends a series ACL with given roles, if those roles are not already part of the ACL
+#
+# xml: A parsable xml string
+# roles: array of hash (symbol => string, symbol => string), containing user role and permission
+#
+# returns:
+#
+def updateSeriesAcl(xml, roles)
+
+  doc = Nokogiri::XML(xml)
+  newNodeSet = Nokogiri::XML::NodeSet.new(doc)
+
+  roles.each do |role|
+    newNode = nokogiri_node_creator(doc, "ace", "")
+    newNode << nokogiri_node_creator(doc, "action", role[:permission])
+    newNode <<  nokogiri_node_creator(doc, "allow", 'true')
+    newNode <<  nokogiri_node_creator(doc, "role", role[:user])
+
+    # Avoid adding duplicate nodes
+    nodeAlreadyExists = false
+    doc.xpath("//x:ace", "x" => "http://org.opencastproject.security").each do |oldNode|
+      if sameNodes?(oldNode, newNode)
+        nodeAlreadyExists = true
+        break
+      end
+    end
+
+    if (!nodeAlreadyExists)
+      newNodeSet << newNode
+    end
+  end
+
+  doc.root << newNodeSet
+
+  return doc.to_xml
+end
+
+#
+# Will create a new series with the given Id, if such a series does not yet exist
+# Else will try to update the ACL of the series
+#
+# createSeriesId: string, the UID for the new series
+#
+def createSeries(createSeriesId, meeting_metadata, real_start_time)
+  BigBlueButton.logger.info( "Attempting to create a new series...")
+  # Check if a series with the given identifier does already exist
+  seriesExists = false
+  seriesFromOc = requestIngestAPI(:get, '/series/allSeriesIdTitle.json', DEFAULT_REQUEST_TIMEOUT, {})
+  begin
+    seriesFromOc = JSON.parse(seriesFromOc)
+    seriesFromOc["series"].each do |serie|
+      BigBlueButton.logger.info( "Found series: " + serie["identifier"].to_s)
+      if (serie["identifier"].to_s === createSeriesId.to_s)
+        seriesExists = true
+        BigBlueButton.logger.info( "Series already exists")
+        break
+      end
+    end
+  rescue JSON::ParserError  => e
+    BigBlueButton.logger.warn(" Could not parse series JSON, Exception #{e}")
+  end 
+  
+  # Create Series
+  if (!seriesExists)
+    BigBlueButton.logger.info( "Create a new series with ID " + createSeriesId)
+    # Create Series-DC
+    seriesDcData = parseDcMetadata(meeting_metadata, getSeriesDcMetadataDefinition(meeting_metadata, real_start_time))
+    seriesDublincore = createDublincore(seriesDcData)
+    # Create Series-ACL
+    seriesAcl = createSeriesAcl(parseAclMetadata(meeting_metadata, getSeriesAclMetadataDefinition(), 
+                  $defaultSeriesRolesWithReadPerm, $defaultSeriesRolesWithWritePerm))
+    BigBlueButton.logger.info( "seriesAcl: " + seriesAcl.to_s)
+    
+    requestIngestAPI(:post, '/series/', DEFAULT_REQUEST_TIMEOUT, 
+    { :series => seriesDublincore,
+      :acl => seriesAcl,
+      :override => false})
+
+  # Update Series ACL
+  else
+    BigBlueButton.logger.info( "Updating series ACL...")
+    seriesAcl = requestIngestAPI(:get, '/series/' + createSeriesId + '/acl.xml', DEFAULT_REQUEST_TIMEOUT, {})
+    roles = parseAclMetadata(meeting_metadata, getSeriesAclMetadataDefinition(), $defaultSeriesRolesWithReadPerm, $defaultSeriesRolesWithWritePerm)
+
+    if (roles.length > 0)
+      updatedSeriesAcl = updateSeriesAcl(seriesAcl, roles)
+      requestIngestAPI(:post, '/series/' + createSeriesId + '/accesscontrol', DEFAULT_REQUEST_TIMEOUT, 
+        { :acl => updatedSeriesAcl,
+          :override => false})
+      BigBlueButton.logger.info( "Updated series ACL")
+    else
+      BigBlueButton.logger.info( "Nothing to update ACL with")
+    end
+  end
 end
 
 #
@@ -757,6 +959,7 @@ BigBlueButton.logger.info( tracks)
 
 # Create metadata file dublincore
 dc_data = parseDcMetadata(meeting_metadata, getDcMetadataDefinition(meeting_metadata, recordingStart.first, recordingStop.last))
+dc_data[:identifier] = checkEventIdentifier(dc_data[:identifier])
 dublincore = createDublincore(dc_data)
 BigBlueButton.logger.info( "Dublincore: \n" + dublincore.to_s)
 
@@ -764,43 +967,15 @@ BigBlueButton.logger.info( "Dublincore: \n" + dublincore.to_s)
 createCuttingMarksJSONAtPath(CUTTING_JSON_PATH, recordingStart, recordingStop, real_start_time, real_end_time)
 
 # Create ACLs at path
-aclData = parseAclMetadata(meeting_metadata, getAclMetadataDefinition())
+aclData = parseAclMetadata(meeting_metadata, getAclMetadataDefinition(), $defaultRolesWithReadPerm, $defaultRolesWithWritePerm)
 if (!aclData.nil? && !aclData.empty?)
-  File.write(ACL_PATH, createAcl(parseAclMetadata(meeting_metadata, getAclMetadataDefinition())))
+  File.write(ACL_PATH, createAcl(parseAclMetadata(meeting_metadata, getAclMetadataDefinition(), $defaultRolesWithReadPerm, $defaultRolesWithWritePerm)))
 end
 
-
-# Create series if it does not exist
-# If we got a seriesId (from which metadata?)
+# Create series with given seriesId, if such a series does not yet exist
 createSeriesId = meeting_metadata["opencast-dc-ispartof"]
 if ($createNewSeriesIfItDoesNotYetExist && !createSeriesId.to_s.empty?)
-  BigBlueButton.logger.info( "Creating a new series...")
-  # GET does series exists. Webrequest will fail if it does not exist.
-  seriesExists = false
-  seriesFromOc = requestIngestAPI(:get, '/series/allSeriesIdTitle.json', DEFAULT_REQUEST_TIMEOUT, {})
-  begin
-    seriesFromOc = JSON.parse(seriesFromOc)
-    seriesFromOc["series"].each do |serie|
-      if (serie["identifier"] === createSeriesId)
-        seriesExists = true
-      end
-    end
-    if (!seriesExists)
-      BigBlueButton.logger.info( "Create a new series with ID " + createSeriesId)
-      # Create Series-DC
-      seriesDcData = parseDcMetadata(meeting_metadata, getSeriesDcMetadataDefinition(meeting_metadata, real_start_time))
-      seriesDublincore = createDublincore(seriesDcData)
-      # Create Series-ACL
-      seriesAcl = createAcl(parseAclMetadata(meeting_metadata, getSeriesAclMetadataDefinition()))
-
-      requestIngestAPI(:post, '/series/', DEFAULT_REQUEST_TIMEOUT, 
-      { :series => seriesDublincore,
-        :acl => seriesAcl,
-        :override => false})
-    end
-  rescue JSON::ParserError  => e
-    BigBlueButton.logger.warn(" Could not parse series JSON, Exception #{e}")
-  end    
+  createSeries(createSeriesId, meeting_metadata, real_start_time)
 end
 
 #
@@ -808,13 +983,9 @@ end
 #
 
 # Create Mediapackage
-uuid_regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-if !dc_data[:identifier].to_s.empty? && (dc_data[:identifier].to_s.downcase =~ uuid_regex)
+if !dc_data[:identifier].to_s.empty? 
   mediapackage = requestIngestAPI(:put, '/ingest/createMediaPackageWithID/' + dc_data[:identifier], DEFAULT_REQUEST_TIMEOUT,{})
 else
-  if !dc_data[:identifier].to_s.empty? && !(dc_data[:identifier].to_s.downcase =~ uuid_regex)
-    BigBlueButton.logger.warn(" The given identifier #{dc_data[:identifier]} is not a valid UUID. Using generated UUID instead.")
-  end
   mediapackage = requestIngestAPI(:get, '/ingest/createMediaPackage', DEFAULT_REQUEST_TIMEOUT, {})
 end
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
