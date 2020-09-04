@@ -23,7 +23,7 @@ $oc_workflow = 'bbb-upload'
 
 # Booleans for processing metadata. False means 'nil' is used as fallback
 # Suggested default: false
-$useSharedNotesForDescriptionFallback = {{opencast_useSharedNotesFallback}}
+$useSharedNotesForDescriptionFallback = '{{opencast_useSharedNotesFallback}}'
 
 # Default roles for the event, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
 # Suggested default: ""
@@ -36,13 +36,13 @@ $createNewSeriesIfItDoesNotYetExist = '{{opencast_createNewSeriesIfItDoesNotYetE
 
 # Default roles for the series, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
 # Suggested default: ""
-$defaultSeriesRolesWithReadPerm = "ROLE_OAUTH_USER"
+$defaultSeriesRolesWithReadPerm = "ROLE_USER_BOB"
 $defaultSeriesRolesWithWritePerm = '{{opencast_seriesRolesWithWritePerm}}'
 
 # The given dublincore identifier will also passed to the dublincore source tag,
 # even if the given identifier cannot be used as the actual identifier for the vent
 # Suggested default: false
-$passIdentifierAsDcSource = true
+$passIdentifierAsDcSource = false
 
 # Flow control booleans
 # Suggested default: false
@@ -182,16 +182,14 @@ def convertSlidesToVideo(presentationSlidesStart)
       # Convert to png
       image = MiniMagick::Image.open(originalLocation)
       image.format 'png'
-      image.resize("#{makeEven(image.width)}x#{makeEven(image.height)}")           # Specify size to avoid accidental down-scaling
+      image.resize("#{makeEven(image.width)}x#{makeEven(image.height)}!")           # Specify size to avoid accidental down-scaling
       pathToImage = File.join(dirname, changeFileExtensionTo(filename, "png"))
       image.write pathToImage
-
       # Save conversion with similar path in tmp
       finalLocation = File.join(TMP_PATH, presentationName, "svgs", changeFileExtensionTo(filename, "mp4"))
-      BigBlueButton.logger.info( "Converting #{pathToImage} to #{finalLocation}")
       # Convert to video
       # Scales the output to be divisible by 2
-      system "ffmpeg -loglevel quiet -nostdin -nostats -r 30 -i #{pathToImage} #{finalLocation}"
+      system "ffmpeg -loglevel quiet -nostdin -nostats -y -r 30 -i #{pathToImage} -vf scale=#{image.width}:#{image.height} #{finalLocation}"
     end
   end
 
