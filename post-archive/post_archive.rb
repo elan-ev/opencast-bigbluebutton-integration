@@ -1,8 +1,9 @@
-require 'trollop'     #Commandline Parser
-require 'rest-client' #Easier HTTP Requests
-require 'nokogiri'    #XML-Parser
-require 'fileutils'   #Directory Creation
-require 'mini_magick' #Image Conversion
+require 'trollop'         #Commandline Parser
+require 'rest-client'     #Easier HTTP Requests
+require 'nokogiri'        #XML-Parser
+require 'fileutils'       #Directory Creation
+require 'mini_magick'     #Image Conversion
+require 'streamio-ffmpeg' #Accessing video information
 require File.expand_path('../../../lib/recordandplayback', __FILE__)  # BBB Utilities
 
 ### opencast configuration begin
@@ -79,14 +80,16 @@ end
 # doc: file handle
 # eventName: name of the xml tag attribute 'eventName', string
 # resultArray: Where results will be appended to, array
+# filePath: Path to the folder were the file related to the event will reside
 #
 # return: resultArray with appended hashes
 #
-def parseTimeStamps(doc, eventName, resultArray)
+def parseTimeStamps(doc, eventName, resultArray, filePath)
   doc.xpath("//event[@eventname='#{eventName}']").each do |item|
     newItem = Hash.new
     newItem["filename"] = item.at_xpath("filename").content.split('/').last
     newItem["timestamp"] = item.at_xpath("timestampUTC").content.to_i
+    newItem["filepath"] = filePath
     resultArray.push(newItem)
   end
 
@@ -126,10 +129,11 @@ end
 # doc: file handle
 # eventName: name of the xml tag attribute 'eventName', string
 # resultArray: Where results will be appended to, array
+# filePath: Path to the folder were the file related to the event will reside
 #
 # return: resultArray with appended hashes
 #
-def parseTimeStampsPresentation(doc, eventName, resultArray)
+def parseTimeStampsPresentation(doc, eventName, resultArray, filePath)
   doc.xpath("//event[@eventname='#{eventName}']").each do |item|
     newItem = Hash.new
     if(item.at_xpath("slide"))
@@ -138,6 +142,7 @@ def parseTimeStampsPresentation(doc, eventName, resultArray)
       newItem["filename"] = "slide1.svg"  # Assume slide 1
     end
     newItem["timestamp"] = item.at_xpath("timestampUTC").content.to_i
+    newItem["filepath"] = File.join(filePath, item.at_xpath("presentationName").content, "svgs")
     newItem["presentationName"] = item.at_xpath("presentationName").content
     resultArray.push(newItem)
   end
@@ -152,9 +157,9 @@ def changeFileExtensionTo(filename, extension)
   return "#{File.basename(filename, File.extname(filename))}.#{extension}"
 end
 
-def makeEven(number)
-  return number % 2 == 0 ? number : number + 1
-end
+# def makeEven(number)
+#   return number % 2 == 0 ? number : number + 1
+# end
 
 #
 # Convert SVGs to MP4s
@@ -166,15 +171,15 @@ end
 # return: presentationSlidesStart, with filenames now pointing to the new videos
 #
 def convertSlidesToVideo(presentationSlidesStart)
-  # For every slide of every presentation
-  (presentationSlidesStart.map { |h| h["presentationName"] }.uniq).each do |presentationName|
-    Dir.foreach( File.join(PRESENTATION_PATH, presentationName, "svgs") ) do |filename|
-      next if File.directory?(filename)
+  presentationSlidesStart.each do |item|
+    # Path to original svg
+    originalLocation = File.join(item["filepath"], item["filename"])
+    # Save conversion with similar path in tmp
+    dirname = File.join(TMP_PATH, item["presentationName"], "svgs")
+    finalLocation = File.join(dirname, changeFileExtensionTo(item["filename"], "mp4"))
 
-      # Path to original svg
-      originalLocation = File.join(PRESENTATION_PATH, presentationName, "svgs", filename)
+    if (!File.exists?(finalLocation))
       # Create path to save conversion to
-      dirname = File.join(TMP_PATH, presentationName, "svgs")
       unless File.directory?(dirname)
         FileUtils.mkdir_p(dirname)
       end
@@ -182,31 +187,55 @@ def convertSlidesToVideo(presentationSlidesStart)
       # Convert to png
       image = MiniMagick::Image.open(originalLocation)
       image.format 'png'
-      image.resize("#{makeEven(image.width)}x#{makeEven(image.height)}!")           # Specify size to avoid accidental down-scaling
-      pathToImage = File.join(dirname, changeFileExtensionTo(filename, "png"))
+      pathToImage = File.join(dirname, changeFileExtensionTo(item["filename"], "png"))
       image.write pathToImage
-      # Save conversion with similar path in tmp
-      finalLocation = File.join(TMP_PATH, presentationName, "svgs", changeFileExtensionTo(filename, "mp4"))
+
       # Convert to video
       # Scales the output to be divisible by 2
-      system "ffmpeg -loglevel quiet -nostdin -nostats -y -r 30 -i #{pathToImage} -vf scale=#{image.width}:#{image.height} #{finalLocation}"
+      system "ffmpeg -loglevel quiet -nostdin -nostats -y -r 30 -i #{pathToImage} -vf crop='trunc(iw/2)*2:trunc(ih/2)*2' #{finalLocation}"
     end
-  end
 
-  # Rename stored filenames in accordance with the conversion
-  presentationSlidesStart.each_with_index do |item, i|
-    BigBlueButton.logger.info( "Renamed #{presentationSlidesStart[i]["filename"]}")
-    presentationSlidesStart[i]["filename"] = changeFileExtensionTo(item["filename"], "mp4")
-    BigBlueButton.logger.info( "To #{presentationSlidesStart[i]["filename"]}")
+    item["filepath"] = dirname
+    item["filename"] = finalLocation.split('/').last
   end
 
   return presentationSlidesStart
 end
 
 #
+# Checks if a video has a width and height that is divisible by 2
+# If not, crops the video to have one 
+#
+# path: string, path to the file in question (without the filename)
+# filename: string, name of the file (with extension)
+#
+# return: new path to the file (keeps the filename)
+#
+def convertVideoToDivByTwo(path, filename)
+  pathToFile = File.join(path, filename)
+  movie = FFMPEG::Movie.new(pathToFile)
+
+  if (movie.width % 2 == 0 && movie.height % 2 == 0)
+    BigBlueButton.logger.info( "Video #{pathToFile} is fine")
+    return path
+  end
+
+  BigBlueButton.logger.info( "Video #{pathToFile} is not fine, converting...")
+  outputPath = File.join(TMP_PATH, pathToFile)
+  # Create path to save conversion to
+  dirname = File.join(TMP_PATH, path)
+  unless File.directory?(dirname)
+    FileUtils.mkdir_p(dirname)
+  end
+
+  movie.transcode(outputPath, %w(-y -r 30 -vf crop=trunc(iw/2)*2:trunc(ih/2)*2))
+
+  return dirname
+end
+
+#
 # Collect file information
 #
-# directory_path: Path to directory with files, string
 # tracks: Structure containing information on each file, array of hashes
 # flavor: Whether the file is part of presenter or presentation, string
 # startTimes: When each file was started to be recorded in ms, array of numerics
@@ -214,14 +243,16 @@ end
 #
 # return: tracks + new tracks found at directory_path
 #
-def collectFileInformation(directory_path, tracks, flavor, startTimes, real_start_time)
-  if (Dir.exist?(directory_path))
-    Dir.foreach(directory_path) do |filename|
-      next if File.directory?(filename)
+
+def collectFileInformation(tracks, flavor, startTimes, real_start_time)
+
+  startTimes.each do |file|
+    if (Dir.exists?(file["filepath"]))
       tracks.push( { "flavor": flavor,
-                     "startTime": (startTimes.detect { |i| i["filename"] == filename }["timestamp"]) - real_start_time,
-                     "path": File.join(directory_path, filename)
-                   } )
+                    "startTime": file["timestamp"] - real_start_time,
+                    "path": File.join(file["filepath"], file["filename"])
+      } )
+      break   # Stop after first iteration to only send first webcam file found. TODO: Teach Opencast to deal with webcam files
     end
   end
 
@@ -888,20 +919,28 @@ end
 # Get conference start and end timestamps in ms
 real_start_time, real_end_time = getRealStartEndTimes(doc)
 # Get screen share start timestamps
-deskshareStart = parseTimeStamps(doc, 'StartWebRTCDesktopShareEvent', deskshareStart)
+deskshareStart = parseTimeStamps(doc, 'StartWebRTCDesktopShareEvent', deskshareStart, DESKSHARE_PATH)
 # Get webcam share start timestamps
-webcamStart = parseTimeStamps(doc, 'StartWebRTCShareEvent', webcamStart)
+webcamStart = parseTimeStamps(doc, 'StartWebRTCShareEvent', webcamStart, VIDEO_PATH)
 # Get audio recording start timestamps
-audioStart = parseTimeStamps(doc, 'StartRecordingEvent', audioStart)
+audioStart = parseTimeStamps(doc, 'StartRecordingEvent', audioStart, AUDIO_PATH)
 # Get cut marks
 recordingStart, recordingStop = parseTimeStampsRecording(doc, 'RecordStatusEvent', recordingStart, recordingStop, real_end_time)
 # Get presentation slide start stamps
-presentationSlidesStart = parseTimeStampsPresentation(doc, 'SharePresentationEvent', presentationSlidesStart) # Grab a timestamp for the beginning
-presentationSlidesStart = parseTimeStampsPresentation(doc, 'GotoSlideEvent', presentationSlidesStart) # Grab timestamps from Goto events
+presentationSlidesStart = parseTimeStampsPresentation(doc, 'SharePresentationEvent', presentationSlidesStart, PRESENTATION_PATH) # Grab a timestamp for the beginning
+presentationSlidesStart = parseTimeStampsPresentation(doc, 'GotoSlideEvent', presentationSlidesStart, PRESENTATION_PATH) # Grab timestamps from Goto events
 
 # Opencasts addPartialTrack cannot handle files without a duration,
 # therefore images need to be converted to videos.
 presentationSlidesStart = convertSlidesToVideo(presentationSlidesStart)
+
+# Make all video resolutions divisible by 2
+deskshareStart.each do |share|
+  share["filepath"] = convertVideoToDivByTwo(share["filepath"], share["filename"])
+end
+webcamStart.each do |share|
+  share["filepath"] = convertVideoToDivByTwo(share["filepath"], share["filename"])
+end
 
 # Exit program if the recording was not pressed
 if ($onlyIngestIfRecordButtonWasPressed && recordingStart.length == 0)
@@ -921,28 +960,21 @@ end
 
 # Add webcam tracks
 # Exception: Once Opencast can handle multiple webcam files, this can be replaced by a collectFileInformation call
-if (Dir.exist?(VIDEO_PATH))
-  Dir.foreach(VIDEO_PATH) do |filename|
-    next if File.directory?(filename)
+webcamStart.each do |file|
+  if (Dir.exists?(file["filepath"]))
     tracks.push( { "flavor": 'presenter/source',
-                   "startTime": (webcamStart.detect { |i| i["filename"] == filename }["timestamp"]) - real_start_time,
-                   "path": File.join(VIDEO_PATH, filename)
-                 } )
+                   "startTime": file["timestamp"] - real_start_time,
+                   "path": File.join(file["filepath"], file["filename"])
+    } )
     break   # Stop after first iteration to only send first webcam file found. TODO: Teach Opencast to deal with webcam files
   end
 end
 # Add audio tracks (Likely to be only one track)
-tracks = collectFileInformation(AUDIO_PATH, tracks, 'presentation/source', audioStart, real_start_time)
+tracks = collectFileInformation(tracks, 'presentation/source', audioStart, real_start_time)
 # Add screen share tracks
-tracks = collectFileInformation(DESKSHARE_PATH, tracks, 'presentation/source', deskshareStart, real_start_time)
+tracks = collectFileInformation(tracks, 'presentation/source', deskshareStart, real_start_time)
 # Add the previously generated tracks for presentation slides
-# Use the converted files stored in tmp!
-presentationSlidesStart.each do |startItem|
-  tracks.push ( { "flavor": 'presentation/source',
-                  "startTime": startItem["timestamp"] - real_start_time,
-                  "path": File.join(TMP_PATH, startItem["presentationName"], "svgs", startItem["filename"])
-              } )
-end
+tracks = collectFileInformation(tracks, 'presentation/source', presentationSlidesStart, real_start_time)
 
 if(tracks.length == 0)
   BigBlueButton.logger.warn(" There are no files, nothing to do here")

@@ -12,7 +12,7 @@ Requirements
 --------
 - Opencast 8.4 (or later)
 - BigBlueButton 2.2 (or later)
-	- Ruby gems: rest-client, fileutils, mini_magick
+	- Ruby gems: rest-client, fileutils, mini_magick, streamio-ffmpeg
 
 Files:
 --------
