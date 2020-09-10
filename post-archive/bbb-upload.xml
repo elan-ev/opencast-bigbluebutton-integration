@@ -4,6 +4,7 @@
   <id>bbb-upload</id>
   <title>BigBlueButton Upload</title>
   <tags>
+    <tag>archive</tag>
   </tags>
   <displayOrder>1000</displayOrder>
   <description>
@@ -53,6 +54,28 @@
       </configurations>
     </operation>
 
+    <!-- Save source in case of errors -->
+
+    <operation
+        id="tag"
+        description="Tagging source material for archival">
+      <configurations>
+        <configuration key="source-flavors">*/*</configuration>
+        <configuration key="target-tags">+archive</configuration>
+      </configurations>
+    </operation>
+
+    <operation
+        id="snapshot"
+        fail-on-error="true"
+        exception-handler-workflow="partial-error"
+        description="Archiving">
+      <configurations>
+        <configuration key="source-tags">archive</configuration>
+      </configurations>
+    </operation>
+
+
     <!-- Stitch together BBB SHTUFF -->
 
     <operation
@@ -75,8 +98,8 @@
         <configuration key="source-presenter-flavor">presenter/source</configuration>
         <configuration key="source-presentation-flavor">presentation/source</configuration>
         <configuration key="source-smil-flavor">smil/source+partial</configuration>
-        <configuration key="target-presenter-flavor">presenter/prepared</configuration>
-        <configuration key="target-presentation-flavor">presentation/prepared</configuration>
+        <configuration key="target-presenter-flavor">presenter/work</configuration>
+        <configuration key="target-presentation-flavor">presentation/work</configuration>
         <configuration key="concat-encoding-profile">concat.work</configuration>
         <configuration key="trim-encoding-profile">trim.work</configuration>
         <configuration key="force-encoding-profile">editor.work</configuration>
@@ -110,8 +133,8 @@
     <!--        exception-handler-workflow="error"-->
     <!--        description="Waiting for user to review / video edit recording">-->
     <!--      <configurations>-->
-    <!--        <configuration key="source-flavors">*/prepared</configuration>-->
-    <!--        <configuration key="skipped-flavors">*/prepared</configuration>-->
+    <!--        <configuration key="source-flavors">*/work</configuration>-->
+    <!--        <configuration key="skipped-flavors">*/work</configuration>-->
     <!--        <configuration key="smil-flavors">smil/cutmarks</configuration>-->
     <!--        <configuration key="target-smil-flavor">smil/cutting</configuration>-->
     <!--        <configuration key="target-flavor-subtype">trimmed</configuration>-->
@@ -125,7 +148,7 @@
         exception-handler-workflow="error"
         description="Tagging media package elements">
       <configurations>
-        <configuration key="source-flavors">*/prepared</configuration>
+        <configuration key="source-flavors">*/work</configuration>
         <configuration key="target-tags">+archive</configuration>
         <configuration key="copy">false</configuration>
       </configurations>
@@ -139,7 +162,7 @@
         exception-handler-workflow="partial-error"
         description="Encoding video">
       <configurations>
-        <configuration key="source-flavor">*/prepared</configuration>
+        <configuration key="source-flavor">*/work</configuration>
         <configuration key="target-flavor">*/preview</configuration>
         <configuration key="target-tags">engage-download,engage-streaming,rss,atom</configuration>
         <configuration key="encoding-profile">fast.http</configuration>
@@ -259,7 +282,25 @@
       </configurations>
     </operation>
 
-    <!-- Archive the current state of the media package -->
+    <!-- Archive the final state of the media package -->
+
+    <operation
+        id="tag"
+        description="Untagging source material for archival removal">
+      <configurations>
+        <configuration key="source-flavors">*/source</configuration>
+        <configuration key="target-tags">-archive</configuration>
+      </configurations>
+    </operation>
+
+    <operation
+        id="tag"
+        description="Tagging work material for archival">
+      <configurations>
+        <configuration key="source-flavors">*/work</configuration>
+        <configuration key="target-tags">+archive</configuration>
+      </configurations>
+    </operation>
 
     <operation
         id="snapshot"
@@ -267,7 +308,18 @@
         exception-handler-workflow="partial-error"
         description="Archiving">
       <configurations>
-        <configuration key="source-flavors">*/source,*/prepared,dublincore/*,security/*</configuration>
+        <configuration key="source-tags">archive</configuration>
+      </configurations>
+    </operation>
+
+    <!-- Delete every but the last snapshot -->
+    <operation
+        id="asset-delete"
+        fail-on-error="true"
+        exception-handler-workflow="partial-error"
+        description="Delete every older Snapshot from AssetManager">
+      <configurations>
+        <configuration key="keep-last-snapshot">true</configuration>
       </configurations>
     </operation>
 
