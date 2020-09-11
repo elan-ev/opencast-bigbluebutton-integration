@@ -49,6 +49,11 @@ $passIdentifierAsDcSource = false
 # Suggested default: false
 $onlyIngestIfRecordButtonWasPressed = '{{opencast_onlyIngestIfRecordButtonWasPressed}}'
 
+# If a converted video already exists, don't overwrite it
+# This can save time when having to run this script on the same input multiple times
+# Suggested default: false
+$doNotConvertVideosAgain = false
+
 ### opencast configuration end
 
 #
@@ -222,10 +227,16 @@ def convertVideoToDivByTwo(path, filename)
 
   BigBlueButton.logger.info( "Video #{pathToFile} is not fine, converting...")
   outputPath = File.join(TMP_PATH, pathToFile)
+
   # Create path to save conversion to
   dirname = File.join(TMP_PATH, path)
   unless File.directory?(dirname)
     FileUtils.mkdir_p(dirname)
+  end
+
+  if ($doNotConvertVideosAgain && File.exists?(outputPath))
+    BigBlueButton.logger.info( "Converted video already exists, not converting...")
+    return dirname
   end
 
   movie.transcode(outputPath, %w(-y -r 30 -vf crop=trunc(iw/2)*2:trunc(ih/2)*2))
@@ -245,14 +256,20 @@ end
 #
 
 def collectFileInformation(tracks, flavor, startTimes, real_start_time)
-
   startTimes.each do |file|
-    if (Dir.exists?(file["filepath"]))
+    pathToFile = File.join(file["filepath"], file["filename"])
+
+    if (File.exists?(pathToFile))
+      # File Integrity check
+      if (!FFMPEG::Movie.new(pathToFile).valid?)
+        BigBlueButton.logger.info( "The file #{pathToFile} is ffmpeg-invalid and won't be ingested")
+        return tracks
+      end
+
       tracks.push( { "flavor": flavor,
                     "startTime": file["timestamp"] - real_start_time,
-                    "path": File.join(file["filepath"], file["filename"])
+                    "path": pathToFile
       } )
-      break   # Stop after first iteration to only send first webcam file found. TODO: Teach Opencast to deal with webcam files
     end
   end
 
