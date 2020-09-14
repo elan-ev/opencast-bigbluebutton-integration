@@ -39,6 +39,7 @@ Setup BBB
 Setup Opencast
 --------
 - In your Opencast installation, add the file `bbb-upload.xml` to the workflow folder (Likely located at `etc/workflows` or `etc/opencast/workflows`)
+- In your Opencast installation, apply a fix in the file `/etc/encoding/opencast-images.properties` by assigning the variable `profile.import.image-frame.ffmpeg.command` the value `-sseof -3 -i #{in.video.path} -update 1 -q:v 1 #{out.dir}/#{out.name}#{out.suffix}`. This will be fixed in future Opencast Versions eventually.
 
 Limitations & Take Cares
 --------
