@@ -49,6 +49,8 @@ Limitations & Take Cares
 - Currently processes and publishes the WHOLE conference, not just when you click the start/stop recording button
 	- To get rid of the parts you don't want, use the video editor tool in Opencast
 - The recording is published with a few default metadata values. To set further metadata, the frontend which creates the BBB-Meeting will need pass them when calling the `/create` API, so that BBB then may pass them on to Opencast. An overview over the possible metadata can be found [here](https://github.com/elan-ev/opencast-bigbluebutton-integration).
+- The time between the end of a BBB Meeting and the recording appearing in Opencast depends largely on the number of files generated. A simple test meeting should take something between 30-60 seconds. 
+	- In certain edge cases (video recordings with uneven resolutions), there may still be some preprocessing necessary on BBB side, greatly increasing the time until the recording appears in Opencast.
 
 Troubleshooting
 --------
