@@ -65,7 +65,7 @@
         id="include"
         description="Publish the recording">
       <configurations>
-        <configuration key="workflow-id">bbb-partial-publish</configuration>
+        <configuration key="workflow-id">partial-publish</configuration>
       </configurations>
     </operation>
 
