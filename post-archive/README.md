@@ -17,7 +17,8 @@ Requirements
 Files:
 --------
 post_archive.rb: A ruby script that handles sending data from BBB to Opencast.  
-bbb-upload.xml: An example workflow for Opencast. Based off the "fast" workflow. 
+bbb-upload.xml: An Opencast workflow for processing BBB data.
+bbb-publish-after-cutting.xml: An Opencast workflow for publish an even that was processed with bbb-upload.xml in the VideoEditor.
 
 Setup BBB
 --------
