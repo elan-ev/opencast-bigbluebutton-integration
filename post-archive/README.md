@@ -1,6 +1,9 @@
 Post-Archive Integration
 ========================
 
+- **There is a known bug where the final video in Opencast will be too short due to missing parts of the recording. A
+  workaround is currently not available for Opencast 8!!!, but we are working on making it available soon.**
+
 The Idea
 --------
 
@@ -17,7 +20,7 @@ Requirements
 Files:
 --------
 post_archive.rb: A ruby script that handles sending data from BBB to Opencast.  
-bbb-upload.xml: An Opencast workflow for processing BBB data.
+bbb-upload.xml: An Opencast workflow for processing BBB data.  
 bbb-publish-after-cutting.xml: An Opencast workflow for publish an even that was processed with bbb-upload.xml in the VideoEditor.
 
 Setup BBB
@@ -43,12 +46,14 @@ Setup BBB
 
 Setup Opencast
 --------
-- In your Opencast installation, add the file `bbb-upload.xml` to the workflow folder (Likely located at `etc/workflows` or `etc/opencast/workflows`)
-- In your Opencast installation, apply a fix in the file `/etc/encoding/opencast-images.properties` by assigning the variable `profile.import.image-frame.ffmpeg.command` the value `-sseof -3 -i #{in.video.path} -update 1 -q:v 1 #{out.dir}/#{out.name}#{out.suffix}`. This is fixed in Opencast 8.7.
 - In your Opencast installation, add the file `bbb-upload.xml` to the workflow folder (Likely located at `etc/workflows` 
   or `etc/opencast/workflows`)
 - Add the file `bbb-publish-after-cutting.xml`. This will add a new Publish option to the VideoEditor, which needs to be 
   used when cutting videos after they have been uploaded from BBB. 
+- In your Opencast installation, apply a fix in the file `/etc/encoding/opencast-images.properties` by assigning the 
+  variable `profile.import.image-frame.ffmpeg.command` the value 
+  `-sseof -3 -i #{in.video.path} -update 1 -q:v 1 #{out.dir}/#{out.name}#{out.suffix}`. This is fixed in Opencast 8.7.
+
 
 Limitations & Take Cares
 --------
@@ -57,12 +62,13 @@ Limitations & Take Cares
 	- If you don't want that, comment out the line under the comment `# Delete all raw recording data` in the function `cleanup`
 - Currently processes and publishes the WHOLE conference, not just when you click the start/stop recording button
 	- To get rid of the parts you don't want, use the video editor tool in Opencast
-- The recording is published with a few default metadata values. To set further metadata, the frontend which creates the BBB-Meeting will need pass them when calling the `/create` API, so that BBB then may pass them on to Opencast. An overview over the possible metadata can be found [here](https://github.com/elan-ev/opencast-bigbluebutton-integration).
-- The time between the end of a BBB Meeting and the recording appearing in Opencast depends largely on the number of files generated. A simple test meeting should take something between 30-60 seconds. 
-	- In certain edge cases (video recordings with uneven resolutions), there may still be some preprocessing necessary on BBB side, greatly increasing the time until the recording appears in Opencast.
 - The recording is published with a few default metadata values. To set further metadata, the frontend which creates the
-   BBB-Meeting will need pass them when calling the `/create` API, so that BBB then may pass them on to Opencast. An 
-   overview over the possible metadata can be found [here](https://github.com/elan-ev/opencast-bigbluebutton-integration).
+  BBB-Meeting will need pass them when calling the `/create` API, so that BBB then may pass them on to Opencast. 
+  An overview over the possible metadata can be found [here](https://github.com/elan-ev/opencast-bigbluebutton-integration).
+- The time between the end of a BBB Meeting and the recording appearing in Opencast depends largely on the number of 
+  files generated. A simple test meeting should take something between 30-60 seconds. 
+	- In certain edge cases (video recordings with uneven resolutions), there may still be some preprocessing necessary 
+	  on BBB side, greatly increasing the time until the recording appears in Opencast.
 - The BBB-Upload workflow for Opencast relies on the partial workflows `partial-preview.xml` and `partial-publish.xml`
   from the official Opencast installation. If these partial workflows are changed in your installation, you will need
   to change the BBB-Uploads workflows accordingly.

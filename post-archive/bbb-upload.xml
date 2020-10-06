@@ -102,6 +102,9 @@
         <configuration key="concat-encoding-profile">concat.work</configuration>
         <configuration key="trim-encoding-profile">trim.work</configuration>
         <configuration key="force-encoding-profile">editor.work</configuration>
+        <!-- Not yet in Opencast! -->
+        <configuration key="preencode-encoding">true</configuration>
+        <configuration key="preencode-encoding-profile">editor.work</configuration>
       </configurations>
     </operation>
 
