@@ -1,8 +1,9 @@
 Post-Archive Integration
 ========================
 
-- **There is a known bug where the final video in Opencast will be too short due to missing parts of the recording. A
-  workaround is currently not available for Opencast 8!!!, but we are working on making it available soon.**
+**There is a known bug where the final video in Opencast will be too short due to missing parts of the recording. A
+  workaround is currently not available for Opencast 8!!!, but will be available with Opencast 9.**
+- If you wish to have the workaround available in Opencast 8, you will have to backport [Opencast Pull Request #1898](https://github.com/opencast/opencast/pull/1898)
 
 The Idea
 --------
