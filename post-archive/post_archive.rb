@@ -263,7 +263,7 @@ def collectFileInformation(tracks, flavor, startTimes, real_start_time)
       # File Integrity check
       if (!FFMPEG::Movie.new(pathToFile).valid?)
         BigBlueButton.logger.info( "The file #{pathToFile} is ffmpeg-invalid and won't be ingested")
-        return tracks
+        next
       end
 
       tracks.push( { "flavor": flavor,
