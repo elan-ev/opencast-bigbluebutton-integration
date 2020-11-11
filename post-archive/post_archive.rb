@@ -208,40 +208,60 @@ def convertSlidesToVideo(presentationSlidesStart)
 end
 
 #
-# Checks if a video has a width and height that is divisible by 2
-# If not, crops the video to have one 
+# Checks if the video requires transcoding before sending it to Opencast
+# * Checks if a video has a width and height that is divisible by 2
+#   If not, crops the video to have one
+# * Checks if the video is missing duration metadata
+#   If it's missing, copies the video to add it
 #
 # path: string, path to the file in question (without the filename)
 # filename: string, name of the file (with extension)
 #
 # return: new path to the file (keeps the filename)
 #
-def convertVideoToDivByTwo(path, filename)
+def checkForTranscode(path, filename)
   pathToFile = File.join(path, filename)
-  movie = FFMPEG::Movie.new(pathToFile)
+  outputPathToFile = File.join(TMP_PATH, pathToFile)
 
-  if (movie.width % 2 == 0 && movie.height % 2 == 0)
-    BigBlueButton.logger.info( "Video #{pathToFile} is fine")
+  if ($doNotConvertVideosAgain && File.exists?(outputPathToFile))
+    BigBlueButton.logger.info( "Converted video for #{pathToFile} already exists, skipping...")
     return path
   end
 
-  BigBlueButton.logger.info( "Video #{pathToFile} is not fine, converting...")
-  outputPath = File.join(TMP_PATH, pathToFile)
-
-  # Create path to save conversion to
-  dirname = File.join(TMP_PATH, path)
-  unless File.directory?(dirname)
-    FileUtils.mkdir_p(dirname)
+  # Gather possible commands
+  transcodeCommands = []
+  movie = FFMPEG::Movie.new(pathToFile)
+  unless (movie.width % 2 == 0 && movie.height % 2 == 0)
+    BigBlueButton.logger.info( "Video #{pathToFile} requires cropping to be DivBy2")
+    transcodeCommands.push(%w(-y -r 30 -vf crop=trunc(iw/2)*2:trunc(ih/2)*2))
+  end
+  if (movie.duration <= 0)
+    BigBlueButton.logger.info( "Video #{pathToFile} requires transcoding due to missing duration")
+    transcodeCommands.push(%w(-y -c copy))
   end
 
-  if ($doNotConvertVideosAgain && File.exists?(outputPath))
-    BigBlueButton.logger.info( "Converted video already exists, not converting...")
-    return dirname
+  # Run gathered commands
+  if(transcodeCommands.length == 0)
+    BigBlueButton.logger.info( "Video #{pathToFile} is fine")
+    return path
+  else
+    # Create path to save conversion to
+    outputPath = File.join(TMP_PATH, path)
+    unless File.directory?(outputPath)
+      FileUtils.mkdir_p(outputPath)
+    end
+
+    BigBlueButton.logger.info( "Start converting #{pathToFile} ...")
+    transcodeCommands.each do | command |
+      BigBlueButton.logger.info( "Running ffmpeg with options: #{command}")
+      movie.transcode(outputPath + 'tmp' + filename, command)
+      FileUtils.mv(outputPath + 'tmp' + filename, outputPathToFile)
+      movie = FFMPEG::Movie.new(outputPathToFile)   # Further transcoding should happen on the new file
+    end
+
+    BigBlueButton.logger.info( "Done converting #{pathToFile}")
+    return outputPath
   end
-
-  movie.transcode(outputPath, %w(-y -r 30 -vf crop=trunc(iw/2)*2:trunc(ih/2)*2))
-
-  return dirname
 end
 
 #
@@ -951,12 +971,12 @@ presentationSlidesStart = parseTimeStampsPresentation(doc, 'GotoSlideEvent', pre
 # therefore images need to be converted to videos.
 presentationSlidesStart = convertSlidesToVideo(presentationSlidesStart)
 
-# Make all video resolutions divisible by 2
+# Check and process any videos if they need to be prepared before Opencast can process them
 deskshareStart.each do |share|
-  share["filepath"] = convertVideoToDivByTwo(share["filepath"], share["filename"])
+  share["filepath"] = checkForTranscode(share["filepath"], share["filename"])
 end
 webcamStart.each do |share|
-  share["filepath"] = convertVideoToDivByTwo(share["filepath"], share["filename"])
+  share["filepath"] = checkForTranscode(share["filepath"], share["filename"])
 end
 
 # Exit program if the recording was not pressed
