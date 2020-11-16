@@ -34,8 +34,8 @@ Setup BBB
 - In the script `post_archive.rb`, change the global variables in the "opencast configuration":
 	- In `post_archive.rb`, change the variable `$oc_server` to point to your Opencast installation
 	- Also change `$oc_user` and `oc_password` to a user of your opencast installation that is allowed to ingest (e.g. 
-	  ROLE_ADMIN, ROLE_STUDIO)
-	    - If you want to be able to create new Opencast series from BBB, the user NEEDS to have ROLE_ADMIN.
+	  ROLE_ADMIN)
+	    - Alternatively, you can use ROLE_CAPTURE_AGENT for more restricted access rights
 	- Change the remaining options how you like.
 - Disable the process and publish steps by calling: `sudo bbb-record --disable presentation`
 - Allow post scripts to call the `bbb-record` utility by adding the line `bigbluebutton ALL = NOPASSWD: /usr/bin/bbb-record` 
@@ -50,8 +50,9 @@ Setup Opencast
 - In your Opencast installation, add the file `bbb-upload.xml` to the workflow folder (Likely located at `etc/workflows` 
   or `etc/opencast/workflows`)
 - Add the file `bbb-publish-after-cutting.xml`. This will add a new Publish option to the VideoEditor, which needs to be 
-  used when cutting videos after they have been uploaded from BBB. 
-- In your Opencast installation, apply a fix in the file `/etc/encoding/opencast-images.properties` by assigning the 
+  used when cutting videos after they have been uploaded from BBB.
+- In the Admin-UI, create the user you entered in the post_archive.rb during "Setup BBB"
+- Apply a fix in the file `/etc/encoding/opencast-images.properties` by assigning the 
   variable `profile.import.image-frame.ffmpeg.command` the value 
   `-sseof -3 -i #{in.video.path} -update 1 -q:v 1 #{out.dir}/#{out.name}#{out.suffix}`. This is fixed in Opencast 8.7.
 
@@ -63,6 +64,7 @@ Limitations & Take Cares
 	- If you don't want that, comment out the line under the comment `# Delete all raw recording data` in the function `cleanup`
 - Currently processes and publishes the WHOLE conference, not just when you click the start/stop recording button
 	- To get rid of the parts you don't want, use the video editor tool in Opencast
+	- If you want to automate this you'll require the open pull request https://github.com/opencast/opencast/pull/1686 and changes to the bbb-upload workflow
 - The recording is published with a few default metadata values. To set further metadata, the frontend which creates the
   BBB-Meeting will need pass them when calling the `/create` API, so that BBB then may pass them on to Opencast. 
   An overview over the possible metadata can be found [here](https://github.com/elan-ev/opencast-bigbluebutton-integration).
