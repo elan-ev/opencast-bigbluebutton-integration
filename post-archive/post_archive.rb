@@ -95,6 +95,9 @@ def parseTimeStamps(doc, eventName, resultArray, filePath)
     newItem["filename"] = item.at_xpath("filename").content.split('/').last
     newItem["timestamp"] = item.at_xpath("timestampUTC").content.to_i
     newItem["filepath"] = filePath
+    if !File.exists?(File.join(newItem["filepath"], newItem["filename"]))
+      next
+    end
     resultArray.push(newItem)
   end
 
@@ -149,6 +152,9 @@ def parseTimeStampsPresentation(doc, eventName, resultArray, filePath)
     newItem["timestamp"] = item.at_xpath("timestampUTC").content.to_i
     newItem["filepath"] = File.join(filePath, item.at_xpath("presentationName").content, "svgs")
     newItem["presentationName"] = item.at_xpath("presentationName").content
+    if !File.exists?(File.join(newItem["filepath"], newItem["filename"]))
+      next
+    end
     resultArray.push(newItem)
   end
 
