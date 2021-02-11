@@ -28,7 +28,7 @@ $useSharedNotesForDescriptionFallback = '{{opencast_useSharedNotesFallback}}'
 
 # Default roles for the event, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
 # Suggested default: ""
-$defaultRolesWithReadPerm = "ROLE_OAUTH_USER"
+$defaultRolesWithReadPerm = '{{opencast_rolesWithReadPerm}}'
 $defaultRolesWithWritePerm = '{{opencast_rolesWithWritePerm}}'
 
 # Whether a new series should be created if the given one does not exist yet
@@ -37,7 +37,7 @@ $createNewSeriesIfItDoesNotYetExist = '{{opencast_createNewSeriesIfItDoesNotYetE
 
 # Default roles for the series, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
 # Suggested default: ""
-$defaultSeriesRolesWithReadPerm = "ROLE_USER_BOB"
+$defaultSeriesRolesWithReadPerm = '{{opencast_seriesRolesWithReadPerm}}'
 $defaultSeriesRolesWithWritePerm = '{{opencast_seriesRolesWithWritePerm}}'
 
 # The given dublincore identifier will also passed to the dublincore source tag,
@@ -52,7 +52,16 @@ $onlyIngestIfRecordButtonWasPressed = '{{opencast_onlyIngestIfRecordButtonWasPre
 # If a converted video already exists, don't overwrite it
 # This can save time when having to run this script on the same input multiple times
 # Suggested default: false
-$doNotConvertVideosAgain = false
+$doNotConvertVideosAgain = true
+
+# Monitor Opencast workflow state after ingest to determine whether the workflow was successful.
+# EXPERIMENTIAL! This may cause the process spawned from this script to run a lot longer than anticipated.
+# Suggested default: false
+$monitorOpencastAfterIngest = false
+# Time between each state check
+$secondsBetweenChecks = 300
+# Fail-safe. Time until the process is terminated no matter what.
+$secondsUntilGiveUpMax = 86400
 
 ### opencast configuration end
 
@@ -285,6 +294,8 @@ def collectFileInformation(tracks, flavor, startTimes, real_start_time)
   startTimes.each do |file|
     pathToFile = File.join(file["filepath"], file["filename"])
 
+    BigBlueButton.logger.info( "PathToFile: #{pathToFile}")
+
     if (File.exists?(pathToFile))
       # File Integrity check
       if (!FFMPEG::Movie.new(pathToFile).valid?)
@@ -400,7 +411,7 @@ end
 #
 # return: The web request response
 #
-def requestIngestAPI(method, url, timeout, payload)
+def requestIngestAPI(method, url, timeout, payload, additionalErrorMessage="")
   begin
     response = RestClient::Request.new(
       :method => method,
@@ -411,9 +422,10 @@ def requestIngestAPI(method, url, timeout, payload)
       :payload => payload
     ).execute
   rescue RestClient::Exception => e
-    BigBlueButton.logger.warn(" for request: #{url}")
+    BigBlueButton.logger.error(" A problem occured for request: #{url}")
     BigBlueButton.logger.info( e)
     BigBlueButton.logger.info( e.http_body)
+    BigBlueButton.logger.info( additionalErrorMessage)
     exit 1
   end
 
@@ -448,7 +460,7 @@ def getDcMetadataDefinition(metadata, meetingStartTime, meetingEndTime)
                                  :fullName => "opencast-dc-title",
                                  :fallback => metadata['meetingname']})
   dc_metadata_definition.push( { :symbol   => :identifier,
-                                 :fullName => "opencast-dc-identifier", 
+                                 :fullName => "opencast-dc-identifier",
                                  :fallback => nil})
   dc_metadata_definition.push( { :symbol   => :creator,
                                  :fullName => "opencast-dc-creator",
@@ -467,7 +479,7 @@ def getDcMetadataDefinition(metadata, meetingStartTime, meetingEndTime)
                                  :fallback => nil})
   dc_metadata_definition.push( { :symbol   => :description,
                                  :fullName => "opencast-dc-description",
-                                 :fallback => $useSharedNotesForDescriptionFallback ? 
+                                 :fallback => $useSharedNotesForDescriptionFallback ?
                                               sharedNotesToString(SHARED_NOTES_PATH) : nil})
   dc_metadata_definition.push( { :symbol   => :spatial,
                                  :fullName => "opencast-dc-spatial",
@@ -486,13 +498,13 @@ def getDcMetadataDefinition(metadata, meetingStartTime, meetingEndTime)
                                  :fallback => nil})
   dc_metadata_definition.push( { :symbol   => :temporal,
                                  :fullName => "opencast-dc-temporal",
-                                 :fallback => "start=#{Time.at(meetingStartTime / 1000).to_datetime}; 
-                                               end=#{Time.at(meetingEndTime / 1000).to_datetime}; 
+                                 :fallback => "start=#{Time.at(meetingStartTime / 1000).to_datetime};
+                                               end=#{Time.at(meetingEndTime / 1000).to_datetime};
                                                scheme=W3C-DTF"})
   dc_metadata_definition.push( { :symbol   => :source,
                                  :fullName => "opencast-dc-source",
                                  :fallback => $passIdentifierAsDcSource ?
-                                              metadata["opencast-dc-identifier"] : nil })                                                                               
+                                              metadata["opencast-dc-identifier"] : nil })
   return dc_metadata_definition
 end
 
@@ -579,7 +591,7 @@ def checkEventIdentifier(identifier)
   end
 
   # Check for existence in Opencast
-  existsInOpencast = true 
+  existsInOpencast = true
   begin
     response = RestClient::Request.new(
       :method => :get,
@@ -811,8 +823,8 @@ def createSeries(createSeriesId, meeting_metadata, real_start_time)
     end
   rescue JSON::ParserError  => e
     BigBlueButton.logger.warn(" Could not parse series JSON, Exception #{e}")
-  end 
-  
+  end
+
   # Create Series
   if (!seriesExists)
     BigBlueButton.logger.info( "Create a new series with ID " + createSeriesId)
@@ -820,11 +832,11 @@ def createSeries(createSeriesId, meeting_metadata, real_start_time)
     seriesDcData = parseDcMetadata(meeting_metadata, getSeriesDcMetadataDefinition(meeting_metadata, real_start_time))
     seriesDublincore = createDublincore(seriesDcData)
     # Create Series-ACL
-    seriesAcl = createSeriesAcl(parseAclMetadata(meeting_metadata, getSeriesAclMetadataDefinition(), 
+    seriesAcl = createSeriesAcl(parseAclMetadata(meeting_metadata, getSeriesAclMetadataDefinition(),
                   $defaultSeriesRolesWithReadPerm, $defaultSeriesRolesWithWritePerm))
     BigBlueButton.logger.info( "seriesAcl: " + seriesAcl.to_s)
-    
-    requestIngestAPI(:post, '/series/', DEFAULT_REQUEST_TIMEOUT, 
+
+    requestIngestAPI(:post, '/series/', DEFAULT_REQUEST_TIMEOUT,
     { :series => seriesDublincore,
       :acl => seriesAcl,
       :override => false})
@@ -837,7 +849,7 @@ def createSeries(createSeriesId, meeting_metadata, real_start_time)
 
     if (roles.length > 0)
       updatedSeriesAcl = updateSeriesAcl(seriesAcl, roles)
-      requestIngestAPI(:post, '/series/' + createSeriesId + '/accesscontrol', DEFAULT_REQUEST_TIMEOUT, 
+      requestIngestAPI(:post, '/series/' + createSeriesId + '/accesscontrol', DEFAULT_REQUEST_TIMEOUT,
         { :acl => updatedSeriesAcl,
           :override => false})
       BigBlueButton.logger.info( "Updated series ACL")
@@ -865,6 +877,56 @@ def sharedNotesToString(path)
     end
   else
     return ""
+  end
+end
+
+#
+# Monitors the state of the started workflow after ingest
+# Will run for quite some time
+#
+def monitorOpencastWorkflow(ingestResponse, secondsBetweenChecks, secondsUntilGiveUpMax, meetingId)
+
+  ### Wait for Opencast to be done
+  secondsUntilGiveUpCounter = 0
+  isOpencastDoneYet = false
+
+  # Get the id of the workflow
+  doc = Nokogiri::XML(ingestResponse)
+  workflowID = doc.xpath("//wf:workflow")[0].attr('id')
+  mediapackageID = doc.xpath("//mp:mediapackage")[0].attr('id')
+
+  # Keep checking whether the started workflow is still running or not
+  while !isOpencastDoneYet do
+    # Wait between checks
+    sleep(secondsBetweenChecks)
+
+    # Request check
+    response = requestIngestAPI(:get, '/workflow/instance/' + workflowID + '.xml', DEFAULT_REQUEST_TIMEOUT, {},
+                                "There has been a problem in OC with the workflow for mediapackage " + mediapackageID + " for BBB recording " + meetingId + ". Aborting..." )
+
+    # Request workflow information
+    doc = Nokogiri::XML(response)
+    elems = doc.xpath("//wf:workflow")
+    state = elems[0].attr('state')
+
+    # Check state
+    if (state == "SUCCEEDED")
+      BigBlueButton.logger.info( "Workflow for " + mediapackageID + " succeeded.")
+      isOpencastDoneYet = true
+    elsif (state == "RUNNING" || state == "INSTANTIATED")
+      BigBlueButton.logger.info( "Workflow for " + mediapackageID + " is " + state)
+    else
+      BigBlueButton.logger.error(" Workflow for " + mediapackageID + " is in state + " + state + ", meaning it is neither running nor has it succeeded. Recording data for " + meetingId + " will not be cleaned up. Aborting...")
+      exit 1
+    end
+
+    # Fail-safe. End this process after some time has passed.
+    secondsUntilGiveUpCounter += secondsBetweenChecks
+    if ( secondsUntilGiveUpCounter >= secondsUntilGiveUpMax )
+      BigBlueButton.logger.error(" " + secondsUntilGiveUpMax.to_s + " seconds have passed since the mediapackage with id " + mediapackageID + " was ingested. Mercy killing process for recording " + meeting_id)
+      exit 1
+    end
+
   end
 end
 
@@ -955,7 +1017,7 @@ doc = ''
 if(File.file?(xml_path))
   doc = Nokogiri::XML(File.open(xml_path))
 else
-  BigBlueButton.logger.error(": NO EVENTS.XML! Nothing to parse, aborting...")
+  BigBlueButton.logger.error(": NO EVENTS.XML for recording" + meeting_id + "! Nothing to parse, aborting...")
   exit 1
 end
 
@@ -1004,7 +1066,12 @@ end
 # Add webcam tracks
 # Exception: Once Opencast can handle multiple webcam files, this can be replaced by a collectFileInformation call
 webcamStart.each do |file|
-  if (Dir.exists?(file["filepath"]))
+  if (File.exists?(File.join(file["filepath"], file["filename"])))
+    # File Integrity check
+    if (!FFMPEG::Movie.new(File.join(file["filepath"], file["filename"])).valid?)
+      BigBlueButton.logger.info( "The file #{File.join(file["filepath"], file["filename"])} is ffmpeg-invalid and won't be ingested")
+      continue
+    end
     tracks.push( { "flavor": 'presenter/source',
                    "startTime": file["timestamp"] - real_start_time,
                    "path": File.join(file["filepath"], file["filename"])
@@ -1056,12 +1123,15 @@ end
 #
 
 # Create Mediapackage
-if !dc_data[:identifier].to_s.empty? 
+if !dc_data[:identifier].to_s.empty?
   mediapackage = requestIngestAPI(:put, '/ingest/createMediaPackageWithID/' + dc_data[:identifier], DEFAULT_REQUEST_TIMEOUT,{})
 else
   mediapackage = requestIngestAPI(:get, '/ingest/createMediaPackage', DEFAULT_REQUEST_TIMEOUT, {})
 end
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+# Get mediapackageId for debugging
+doc = Nokogiri::XML(mediapackage)
+mediapackageId = doc.xpath("/*")[0].attr('id')
 # Add Partial Track
 tracks.each do |track|
   BigBlueButton.logger.info( "Track: " + track.to_s)
@@ -1094,11 +1164,17 @@ if (File.file?(ACL_PATH))
   BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 else
   BigBlueButton.logger.info( "No ACL found, skipping adding ACL.")
-end               
+end
 # Ingest and start workflow
 response = requestIngestAPI(:post, '/ingest/ingest/' + $oc_workflow, START_WORKFLOW_REQUEST_TIMEOUT,
-                { :mediaPackage => mediapackage })
+                { :mediaPackage => mediapackage },
+                "LOG ERROR Aborting ingest with BBB id " + meeting_id + "and OC id" + mediapackageId )
 BigBlueButton.logger.info( response)
+
+### Monitor Opencast
+if $monitorOpencastAfterIngest
+  monitorOpencastWorkflow(response, $secondsBetweenChecks, $secondsUntilGiveUpMax, meeting_id)
+end
 
 ### Exit gracefully
 cleanup(TMP_PATH, meeting_id)
