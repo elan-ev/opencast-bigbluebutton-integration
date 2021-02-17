@@ -31,6 +31,10 @@ Setup BBB
 - Place the script `post_archive.rb` in 
     
     `/usr/local/bigbluebutton/core/scripts/post_archive/`
+    
+    Place the folder `oc_modules` from the top-level of this repository in the same location. 
+    
+    `/usr/local/bigbluebutton/core/scripts/post_archive/oc_modules`
 - In the script `post_archive.rb`, change the global variables in the "opencast configuration":
 	- In `post_archive.rb`, change the variable `$oc_server` to point to your Opencast installation
 	- Also change `$oc_user` and `oc_password` to a user of your opencast installation that is allowed to ingest (e.g. 
