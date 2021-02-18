@@ -22,9 +22,9 @@ $oc_password = '{{opencast_password}}'
 # oc_workflow = 'bbb-upload'
 $oc_workflow = 'bbb-upload'
 
-# Booleans for processing metadata. False means 'nil' is used as fallback
+# Adds the shared notes etherpad from a meeting to the attachments in Opencast
 # Suggested default: false
-$useSharedNotesForDescriptionFallback = '{{opencast_useSharedNotesFallback}}'
+$sendSharedNotesEtherpadAsAttachment = false
 
 # Default roles for the event, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
 # Suggested default: ""
@@ -55,12 +55,13 @@ $onlyIngestIfRecordButtonWasPressed = '{{opencast_onlyIngestIfRecordButtonWasPre
 $doNotConvertVideosAgain = true
 
 # Monitor Opencast workflow state after ingest to determine whether the workflow was successful.
+# WARNING! Will stop processing of further recordings until the Opencast workflow completes. Do not use in production!
 # EXPERIMENTIAL! This may cause the process spawned from this script to run a lot longer than anticipated.
 # Suggested default: false
 $monitorOpencastAfterIngest = false
-# Time between each state check
+# Time between each state check in seconds
 $secondsBetweenChecks = 300
-# Fail-safe. Time until the process is terminated no matter what.
+# Fail-safe. Time in seconds until the process is terminated no matter what.
 $secondsUntilGiveUpMax = 86400
 
 ### opencast configuration end
@@ -479,8 +480,7 @@ def getDcMetadataDefinition(metadata, meetingStartTime, meetingEndTime)
                                  :fallback => nil})
   dc_metadata_definition.push( { :symbol   => :description,
                                  :fullName => "opencast-dc-description",
-                                 :fallback => $useSharedNotesForDescriptionFallback ?
-                                              sharedNotesToString(SHARED_NOTES_PATH) : nil})
+                                 :fallback => nil})
   dc_metadata_definition.push( { :symbol   => :spatial,
                                  :fullName => "opencast-dc-spatial",
                                  :fallback => "BigBlueButton"})
@@ -860,27 +860,6 @@ def createSeries(createSeriesId, meeting_metadata, real_start_time)
 end
 
 #
-# Parses the text-content of shared notes html file into a string and returns it
-#
-# path: string, path to shared notes file
-#
-# return: html text-content as a string
-#
-def sharedNotesToString(path)
-  if (File.file?(File.join(path, "notes.html")))
-    doc = File.open(File.join(path, "notes.html")) { |f| Nokogiri::HTML(f) }
-    if doc.at('body')
-      return doc.at('body').content.to_s
-    else
-      BigBlueButton.logger.warn(" Shared notes has no body tag, returning empty string instead.")
-      return ""
-    end
-  else
-    return ""
-  end
-end
-
-#
 # Monitors the state of the started workflow after ingest
 # Will run for quite some time
 #
@@ -1164,6 +1143,16 @@ if (File.file?(ACL_PATH))
   BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 else
   BigBlueButton.logger.info( "No ACL found, skipping adding ACL.")
+end
+# Add Shared Notes
+if ($sendSharedNotesEtherpadAsAttachment && File.file?(File.join(SHARED_NOTES_PATH, "notes.etherpad")))
+  mediapackage = requestIngestAPI(:post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
+                  {:mediaPackage => mediapackage,
+                  :flavor => "etherpad/sharednotes",
+                  :body => File.open(File.join(SHARED_NOTES_PATH, "notes.etherpad"), 'rb') })
+  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+else
+  BigBlueButton.logger.info( "Adding Shared notes is either disabled or the etherpad was not found, skipping adding Shared Notes Etherpad.")
 end
 # Ingest and start workflow
 response = requestIngestAPI(:post, '/ingest/ingest/' + $oc_workflow, START_WORKFLOW_REQUEST_TIMEOUT,
