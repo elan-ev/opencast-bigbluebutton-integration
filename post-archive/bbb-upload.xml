@@ -53,6 +53,21 @@
       </configurations>
     </operation>
 
+    <!--- Tag captions for publish to engage -->
+
+    <operation
+        id="tag"
+        max-attempts="2"
+        fail-on-error="true"
+        exception-handler-workflow="error"
+        description="Tagging captions for publishing to engage">
+      <configurations>
+        <configuration key="source-flavors">captions/*</configuration>
+        <configuration key="target-tags">+engage-download</configuration>
+        <configuration key="copy">false</configuration>
+      </configurations>
+    </operation>
+
     <!-- Save source in case of errors -->
 
     <operation
