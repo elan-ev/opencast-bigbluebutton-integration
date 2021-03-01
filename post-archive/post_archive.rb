@@ -6,6 +6,10 @@ require 'mini_magick'     #Image Conversion
 require 'streamio-ffmpeg' #Accessing video information
 require File.expand_path('../../../lib/recordandplayback', __FILE__)  # BBB Utilities
 
+require_relative 'oc_modules/oc_dublincore'
+require_relative 'oc_modules/oc_acl'
+require_relative 'oc_modules/oc_util'
+
 ### opencast configuration begin
 
 # Server URL
@@ -312,68 +316,6 @@ def collectFileInformation(tracks, flavor, startTimes, real_start_time)
   end
 
   return tracks
-end
-
-#
-# Helper function for creating xml nodes
-#
-def nokogiri_node_creator (doc, name, content, attributes = nil)
-  new_node = Nokogiri::XML::Node.new(name, doc)
-  new_node.content = content
-  unless attributes.nil?
-    attributes.each do |attribute|
-      new_node.set_attribute(attribute[:name], attribute[:value])
-    end
-  end
-  return new_node
-end
-
-#
-# Creates a dublincore xml
-#
-# dc:data: array of hashes (symbol => string), contains the values for the different dublincore terms
-#
-# return: the complete xml, string
-#
-def createDublincore(dc_data)
-  # A non-empty title is required for a successful ingest
-  if dc_data[:title].to_s.empty?
-    dc_data[:title] = "Default Title"
-  end
-
-  # Basic structure
-  dublincore = []
-  dublincore.push("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-  dublincore.push("<dublincore xmlns=\"http://www.opencastproject.org/xsd/1.0/dublincore/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">")
-  dublincore.push("</dublincore>")
-  dublincore = dublincore.join("\n")
-
-  # Create nokogiri doc
-  doc = Nokogiri::XML(dublincore)
-  node_set = Nokogiri::XML::NodeSet.new(doc)
-
-  # Create nokogiri nodes
-  node_set << nokogiri_node_creator(doc, 'dcterms:title', dc_data[:title])
-  node_set << nokogiri_node_creator(doc, 'dcterms:identifier', dc_data[:identifier])      if dc_data[:identifier]
-  node_set << nokogiri_node_creator(doc, 'dcterms:creator', dc_data[:creator])            if dc_data[:creator]
-  node_set << nokogiri_node_creator(doc, 'dcterms:isPartOf', dc_data[:isPartOf])          if dc_data[:isPartOf]
-  node_set << nokogiri_node_creator(doc, 'dcterms:contributor', dc_data[:contributor])    if dc_data[:contributor]
-  node_set << nokogiri_node_creator(doc, 'dcterms:subject', dc_data[:subject])            if dc_data[:subject]
-  node_set << nokogiri_node_creator(doc, 'dcterms:language', dc_data[:language])          if dc_data[:language]
-  node_set << nokogiri_node_creator(doc, 'dcterms:description', dc_data[:description])    if dc_data[:description]
-  node_set << nokogiri_node_creator(doc, 'dcterms:spatial', dc_data[:spatial])            if dc_data[:spatial]
-  node_set << nokogiri_node_creator(doc, 'dcterms:created', dc_data[:created])            if dc_data[:created]
-  node_set << nokogiri_node_creator(doc, 'dcterms:rightsHolder', dc_data[:rightsHolder])  if dc_data[:rightsHolder]
-  node_set << nokogiri_node_creator(doc, 'dcterms:license', dc_data[:license])            if dc_data[:license]
-  node_set << nokogiri_node_creator(doc, 'dcterms:publisher', dc_data[:publisher])        if dc_data[:publisher]
-  node_set << nokogiri_node_creator(doc, 'dcterms:temporal', dc_data[:temporal])          if dc_data[:temporal]
-  node_set << nokogiri_node_creator(doc, 'dcterms:source', dc_data[:source])              if dc_data[:source]
-
-  # Add nodes
-  doc.root.add_child(node_set)
-
-  # Finalize
-  return doc.to_xml
 end
 
 #
@@ -856,6 +798,7 @@ def createSeries(createSeriesId, meeting_metadata, real_start_time)
     else
       BigBlueButton.logger.info( "Nothing to update ACL with")
     end
+>>>>>>> master
   end
 end
 
@@ -880,8 +823,9 @@ def monitorOpencastWorkflow(ingestResponse, secondsBetweenChecks, secondsUntilGi
     sleep(secondsBetweenChecks)
 
     # Request check
-    response = requestIngestAPI(:get, '/workflow/instance/' + workflowID + '.xml', DEFAULT_REQUEST_TIMEOUT, {},
-                                "There has been a problem in OC with the workflow for mediapackage " + mediapackageID + " for BBB recording " + meetingId + ". Aborting..." )
+    response = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+                :get, '/workflow/instance/' + workflowID + '.xml', DEFAULT_REQUEST_TIMEOUT, {},
+                "There has been a problem in OC with the workflow for mediapackage " + mediapackageID + " for BBB recording " + meetingId + ". Aborting..." )
 
     # Request workflow information
     doc = Nokogiri::XML(response)
@@ -1077,24 +1021,22 @@ BigBlueButton.logger.info( "Sorted tracks: ")
 BigBlueButton.logger.info( tracks)
 
 # Create metadata file dublincore
-dc_data = parseDcMetadata(meeting_metadata, getDcMetadataDefinition(meeting_metadata, recordingStart.first, recordingStop.last))
-dc_data[:identifier] = checkEventIdentifier(dc_data[:identifier])
-dublincore = createDublincore(dc_data)
+dc_data = OcDublincore::parseDcMetadata(meeting_metadata, server: $oc_server, user: $oc_user, password: $oc_password)
+dublincore = OcDublincore::createDublincore(dc_data)
 BigBlueButton.logger.info( "Dublincore: \n" + dublincore.to_s)
 
 # Create Json containing cutting marks at path
 createCuttingMarksJSONAtPath(CUTTING_JSON_PATH, recordingStart, recordingStop, real_start_time, real_end_time)
 
 # Create ACLs at path
-aclData = parseAclMetadata(meeting_metadata, getAclMetadataDefinition(), $defaultRolesWithReadPerm, $defaultRolesWithWritePerm)
+aclData = OcAcl::parseEpisodeAclMetadata(meeting_metadata, $defaultRolesWithReadPerm, $defaultRolesWithWritePerm)
 if (!aclData.nil? && !aclData.empty?)
-  File.write(ACL_PATH, createAcl(parseAclMetadata(meeting_metadata, getAclMetadataDefinition(), $defaultRolesWithReadPerm, $defaultRolesWithWritePerm)))
+  File.write(ACL_PATH, OcAcl::createAcl(aclData))
 end
 
 # Create series with given seriesId, if such a series does not yet exist
-createSeriesId = meeting_metadata["opencast-dc-ispartof"]
-if ($createNewSeriesIfItDoesNotYetExist && !createSeriesId.to_s.empty?)
-  createSeries(createSeriesId, meeting_metadata, real_start_time)
+if ($createNewSeriesIfItDoesNotYetExist)
+  OcAcl::createSeries(meeting_metadata, $oc_server, $oc_user, $oc_password, $defaultSeriesRolesWithReadPerm, $defaultSeriesRolesWithWritePerm)
 end
 
 #
@@ -1103,9 +1045,11 @@ end
 
 # Create Mediapackage
 if !dc_data[:identifier].to_s.empty?
-  mediapackage = requestIngestAPI(:put, '/ingest/createMediaPackageWithID/' + dc_data[:identifier], DEFAULT_REQUEST_TIMEOUT,{})
+  mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+                  :put, '/ingest/createMediaPackageWithID/' + dc_data[:identifier], DEFAULT_REQUEST_TIMEOUT,{})
 else
-  mediapackage = requestIngestAPI(:get, '/ingest/createMediaPackage', DEFAULT_REQUEST_TIMEOUT, {})
+  mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+                  :get, '/ingest/createMediaPackage', DEFAULT_REQUEST_TIMEOUT, {})
 end
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 # Get mediapackageId for debugging
@@ -1114,7 +1058,8 @@ mediapackageId = doc.xpath("/*")[0].attr('id')
 # Add Partial Track
 tracks.each do |track|
   BigBlueButton.logger.info( "Track: " + track.to_s)
-  mediapackage = requestIngestAPI(:post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
+  mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+                  :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
                   { :flavor => track[:flavor],
                     :startTime => track[:startTime],
                     :mediaPackage => mediapackage,
@@ -1122,12 +1067,14 @@ tracks.each do |track|
   BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 end
 # Add dublincore
-mediapackage = requestIngestAPI(:post, '/ingest/addDCCatalog', DEFAULT_REQUEST_TIMEOUT,
+mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+                :post, '/ingest/addDCCatalog', DEFAULT_REQUEST_TIMEOUT,
                 {:mediaPackage => mediapackage,
                  :dublinCore => dublincore })
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 # Add cutting marks
-mediapackage = requestIngestAPI(:post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
+mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+                :post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
                 {:mediaPackage => mediapackage,
                  :flavor => CUTTING_MARKS_FLAVOR,
                  :body => File.open(CUTTING_JSON_PATH, 'rb')})
@@ -1136,7 +1083,8 @@ mediapackage = requestIngestAPI(:post, '/ingest/addCatalog', DEFAULT_REQUEST_TIM
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 # Add ACL
 if (File.file?(ACL_PATH))
-  mediapackage = requestIngestAPI(:post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
+  mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+                  :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
                   {:mediaPackage => mediapackage,
                   :flavor => "security/xacml+episode",
                   :body => File.open(ACL_PATH, 'rb') })
@@ -1155,7 +1103,8 @@ else
   BigBlueButton.logger.info( "Adding Shared notes is either disabled or the etherpad was not found, skipping adding Shared Notes Etherpad.")
 end
 # Ingest and start workflow
-response = requestIngestAPI(:post, '/ingest/ingest/' + $oc_workflow, START_WORKFLOW_REQUEST_TIMEOUT,
+response = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+                :post, '/ingest/ingest/' + $oc_workflow, START_WORKFLOW_REQUEST_TIMEOUT,
                 { :mediaPackage => mediapackage },
                 "LOG ERROR Aborting ingest with BBB id " + meeting_id + "and OC id" + mediapackageId )
 BigBlueButton.logger.info( response)

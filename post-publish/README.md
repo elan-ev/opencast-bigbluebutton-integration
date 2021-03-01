@@ -10,8 +10,14 @@ The Idea
 - Send them to Opencast once they are finished
 - Transferred media includes:
     - Combined video of all webcams
-	 - Video of Screen recording
-	 - Combined audio
+    - Video of Screen recording
+    - Combined audio
+    
+Requirements
+------------
+
+- The Ruby gem 'rest-client' is used to send requests to Opencast. If it is not yet installed, manually install it
+  via `gem install *name*`.
 
 
 The Integration Script
@@ -24,6 +30,11 @@ This script should be located at (there should already be an example script in t
 
 Make sure to adjust the credentials set at the top of this script.
 
+Place the folder `oc_modules` from the top-level of this repository in the same location as the script. It contains
+modules that are necessary for the script to run.
+
+    /usr/local/bigbluebutton/core/scripts/post_publish/oc_modules
+
 
 Limitations
 -----------
@@ -31,6 +42,5 @@ Limitations
 This is a very simple integration, but should work just fine.
 Nevertheless, there are a few limitations.
 
-- Right now, only the room name is added as metadata to the recording.
 - BigBlueButton includes audio only in the camera recording, not in the screen recording.
   Your Opencast workflow will need to fix that.
