@@ -30,6 +30,10 @@ $oc_workflow = 'bbb-upload'
 # Suggested default: false
 $sendSharedNotesEtherpadAsAttachment = false
 
+# Adds the public chat from a meeting to the attachments in Opencast as a subtitle file
+# Suggested default: false
+$sendChatAsSubtitleAttachment = false
+
 # Default roles for the event, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
 # Suggested default: ""
 $defaultRolesWithReadPerm = '{{opencast_rolesWithReadPerm}}'
@@ -803,6 +807,78 @@ def createSeries(createSeriesId, meeting_metadata, real_start_time)
 end
 
 #
+# Parses the chat messages from the events.xml into a webvtt subtitles file
+# TODO: Sanitize chat messages?
+#
+# doc: file handle
+# chatFilePath: string
+# realStartTime: number, start time of the meeting in epoch time
+# recordingStart: array[string], times when the recording button was pressed in epoch time
+# recordingStop: array[string], times when the recording button was pressed in epoch time
+#
+def parseChat(doc, chatFilePath, realStartTime, recordingStart, recordingStop)
+  BigBlueButton.logger.info( "Parsing chat messages")
+
+  timeFormat = '%H:%M:%S.%L'
+  displayMessageTimeMax = 3  # seconds
+  chatMessages = []
+
+  # Gather messages
+  chatEvents = doc.xpath("//event[@eventname='PublicChatEvent']")
+
+  recordingStart.each.with_index do |recordStartStamp, index|
+    recordStopStamp = recordingStop[index]
+
+    chatEvents.each do |node|
+      chatTimestamp = node.at_xpath("timestampUTC").content.to_i
+
+      if (chatTimestamp >= recordStartStamp.to_i and chatTimestamp <= recordStopStamp.to_i)
+        chatSender = node.xpath(".//sender")[0].text()
+        chatMessage =  node.xpath(".//message")[0].text()
+        chatStart = Time.at((chatTimestamp - realStartTime) / 1000.0) #.utc.strftime(TIME_FORMAT)
+        #chatEnd = Time.at((chatTimestamp - realStartTime) / 1000.0) + 2
+        #chatEnd = chatEnd.utc.strftime(TIME_FORMAT)
+        chatMessages.push({sender: chatSender,
+          message: chatMessage,
+          startTime: chatStart,
+          endTime: Time.at(0)
+        })
+      end
+    end
+
+  end
+
+  # Update timestamps
+  chatMessages.each.with_index do |message, index|
+    # Last message
+    if chatMessages[index + 1].nil?
+      message[:endTime] = message[:startTime] + displayMessageTimeMax
+      break
+    end
+
+    if (chatMessages[index + 1][:startTime] - message[:startTime]) < displayMessageTimeMax
+      message[:endTime] = chatMessages[index + 1][:startTime]
+    else
+      message[:endTime] = message[:startTime] + displayMessageTimeMax
+    end
+  end
+
+  # Compile messages
+  files = []
+  files.push("WEBVTT")
+  files.push("")
+  chatMessages.each do |message|
+    files.push(message[:startTime].utc.strftime(timeFormat).to_s + " --> " + message[:endTime].utc.strftime(timeFormat).to_s)
+    files.push(message[:sender] + ": " + message[:message])
+    files.push("")
+  end
+
+  if (chatMessages.length > 0)
+    File.write(chatFilePath, files.join("\n"))
+  end
+end
+
+#
 # Monitors the state of the started workflow after ingest
 # Will run for quite some time
 #
@@ -913,6 +989,7 @@ PRESENTATION_PATH = File.join(archived_files, 'presentation')  # Path defined by
 SHARED_NOTES_PATH = File.join(archived_files, 'notes')         # Path defined by BBB
 TMP_PATH = File.join(archived_files, 'upload_tmp')             # Where temporary files can be stored
 CUTTING_JSON_PATH = File.join(TMP_PATH, "cutting.json")
+CHAT_PATH = File.join(TMP_PATH, "chat.vtt")
 ACL_PATH = File.join(TMP_PATH, "acl.xml")
 
 # Create local tmp directory
@@ -1039,6 +1116,11 @@ if ($createNewSeriesIfItDoesNotYetExist)
   OcAcl::createSeries(meeting_metadata, $oc_server, $oc_user, $oc_password, $defaultSeriesRolesWithReadPerm, $defaultSeriesRolesWithWritePerm)
 end
 
+# Create a subtitles file from chat
+if ($sendChatAsSubtitleAttachment)
+  parseChat(doc, CHAT_PATH, real_start_time, recordingStart, recordingStop)
+end
+
 #
 # Create a mediapackage and ingest it
 #
@@ -1101,6 +1183,16 @@ if ($sendSharedNotesEtherpadAsAttachment && File.file?(File.join(SHARED_NOTES_PA
   BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 else
   BigBlueButton.logger.info( "Adding Shared notes is either disabled or the etherpad was not found, skipping adding Shared Notes Etherpad.")
+end
+# Add Chat as subtitles
+if ($sendChatAsSubtitleAttachment && File.file?(CHAT_PATH))
+  mediapackage = requestIngestAPI(:post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
+                  {:mediaPackage => mediapackage,
+                  :flavor => "captions/vtt+en",
+                  :body => File.open(CHAT_PATH, 'rb') })
+  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+else
+  BigBlueButton.logger.info( "Adding Chat as subtitles is either disabled or there was no chat, skipping adding Chat as subtitles.")
 end
 # Ingest and start workflow
 response = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
