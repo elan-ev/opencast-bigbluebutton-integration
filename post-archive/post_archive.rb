@@ -26,9 +26,9 @@ $oc_password = '{{opencast_password}}'
 # oc_workflow = 'bbb-upload'
 $oc_workflow = 'bbb-upload'
 
-# Booleans for processing metadata. False means 'nil' is used as fallback
+# Adds the shared notes etherpad from a meeting to the attachments in Opencast
 # Suggested default: false
-$useSharedNotesForDescriptionFallback = '{{opencast_useSharedNotesFallback}}'
+$sendSharedNotesEtherpadAsAttachment = false
 
 # Default roles for the event, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
 # Suggested default: ""
@@ -59,6 +59,7 @@ $onlyIngestIfRecordButtonWasPressed = '{{opencast_onlyIngestIfRecordButtonWasPre
 $doNotConvertVideosAgain = true
 
 # Monitor Opencast workflow state after ingest to determine whether the workflow was successful.
+# WARNING! Will stop processing of further recordings until the Opencast workflow completes. Do not use in production!
 # EXPERIMENTIAL! This may cause the process spawned from this script to run a lot longer than anticipated.
 # Suggested default: false
 $monitorOpencastAfterIngest = false
@@ -344,23 +345,460 @@ def createCuttingMarksJSONAtPath(path, recordingStart, recordingStop, real_start
 end
 
 #
-# Parses the text-content of shared notes html file into a string and returns it
+# Sends a web request to Opencast, using the credentials defined at the top
 #
-# path: string, path to shared notes file
+# method: Http method, symbol (e.g. :get, :post)
+# url: ingest method, string (e.g. '/ingest/addPartialTrack')
+# timeout: seconds until request returns with a timeout, numeric
+# payload: information necessary for the request, hash
 #
-# return: html text-content as a string
+# return: The web request response
 #
-def sharedNotesToString(path)
-  if (File.file?(File.join(path, "notes.html")))
-    doc = File.open(File.join(path, "notes.html")) { |f| Nokogiri::HTML(f) }
-    if doc.at('body')
-      return doc.at('body').content.to_s
-    else
-      BigBlueButton.logger.warn(" Shared notes has no body tag, returning empty string instead.")
-      return ""
+def requestIngestAPI(method, url, timeout, payload, additionalErrorMessage="")
+  begin
+    response = RestClient::Request.new(
+      :method => method,
+      :url => $oc_server + url,
+      :user => $oc_user,
+      :password => $oc_password,
+      :timeout => timeout,
+      :payload => payload
+    ).execute
+  rescue RestClient::Exception => e
+    BigBlueButton.logger.error(" A problem occured for request: #{url}")
+    BigBlueButton.logger.info( e)
+    BigBlueButton.logger.info( e.http_body)
+    BigBlueButton.logger.info( additionalErrorMessage)
+    exit 1
+  end
+
+  return response
+end
+
+#
+# Helper function that determines if the metadata in question exists
+#
+# metadata: hash (string => string)
+# metadata_name: string, the key we hope exists in metadata
+# fallback: object, what to return if it doesn't (or is empty)
+#
+# return: the value corresponding to metadata_name or fallback
+#
+def parseMetadataFieldOrFallback(metadata, metadata_name, fallback)
+  return !(metadata[metadata_name.downcase].to_s.empty?) ?
+           metadata[metadata_name.downcase] : fallback
+end
+
+#
+# Creates a definition for metadata, containing symbol, identifier and fallback
+#
+# metadata: hash (string => string)
+# meetingStartTime: time, as a fallback for the "created" metadata-field
+#
+# return: array of hashes
+#
+def getDcMetadataDefinition(metadata, meetingStartTime, meetingEndTime)
+  dc_metadata_definition = []
+  dc_metadata_definition.push( { :symbol   => :title,
+                                 :fullName => "opencast-dc-title",
+                                 :fallback => metadata['meetingname']})
+  dc_metadata_definition.push( { :symbol   => :identifier,
+                                 :fullName => "opencast-dc-identifier",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :creator,
+                                 :fullName => "opencast-dc-creator",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :isPartOf,
+                                 :fullName => "opencast-dc-ispartof",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :contributor,
+                                 :fullName => "opencast-dc-contributor",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :subject,
+                                 :fullName => "opencast-dc-subject",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :language,
+                                 :fullName => "opencast-dc-language",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :description,
+                                 :fullName => "opencast-dc-description",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :spatial,
+                                 :fullName => "opencast-dc-spatial",
+                                 :fallback => "BigBlueButton"})
+  dc_metadata_definition.push( { :symbol   => :created,
+                                 :fullName => "opencast-dc-created",
+                                 :fallback => meetingStartTime})
+  dc_metadata_definition.push( { :symbol   => :rightsHolder,
+                                 :fullName => "opencast-dc-rightsholder",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :license,
+                                 :fullName => "opencast-dc-license",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :publisher,
+                                 :fullName => "opencast-dc-publisher",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :temporal,
+                                 :fullName => "opencast-dc-temporal",
+                                 :fallback => "start=#{Time.at(meetingStartTime / 1000).to_datetime};
+                                               end=#{Time.at(meetingEndTime / 1000).to_datetime};
+                                               scheme=W3C-DTF"})
+  dc_metadata_definition.push( { :symbol   => :source,
+                                 :fullName => "opencast-dc-source",
+                                 :fallback => $passIdentifierAsDcSource ?
+                                              metadata["opencast-dc-identifier"] : nil })
+  return dc_metadata_definition
+end
+
+#
+# Creates a definition for metadata, containing symbol, identifier and fallback
+#
+# metadata: hash (string => string)
+# meetingStartTime: time, as a fallback for the "created" metadata-field
+#
+# return: array of hashes
+#
+def getSeriesDcMetadataDefinition(metadata, meetingStartTime)
+  dc_metadata_definition = []
+  dc_metadata_definition.push( { :symbol   => :title,
+                                 :fullName => "opencast-series-dc-title",
+                                 :fallback => metadata['meetingname']})
+  dc_metadata_definition.push( { :symbol   => :identifier,
+                                 :fullName => "opencast-dc-isPartOf",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :creator,
+                                 :fullName => "opencast-series-dc-creator",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :contributor,
+                                 :fullName => "opencast-series-dc-contributor",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :subject,
+                                 :fullName => "opencast-series-dc-subject",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :language,
+                                 :fullName => "opencast-series-dc-language",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :description,
+                                 :fullName => "opencast-series-dc-description",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :rightsHolder,
+                                 :fullName => "opencast-series-dc-rightsholder",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :license,
+                                 :fullName => "opencast-series-dc-license",
+                                 :fallback => nil})
+  dc_metadata_definition.push( { :symbol   => :publisher,
+                                 :fullName => "opencast-series-dc-publisher",
+                                 :fallback => nil})
+  return dc_metadata_definition
+end
+
+#
+# Parses dublincore-relevant information from the metadata
+# Contains the definitions for metadata-field-names
+# Casts metadata keys to LOWERCASE
+#
+# metadata: hash (string => string)
+#
+# return hash (symbol => object)
+#
+def parseDcMetadata(metadata, dc_metadata_definition)
+  dc_data = {}
+
+  dc_metadata_definition.each do |definition|
+    dc_data[definition[:symbol]] = parseMetadataFieldOrFallback(metadata, definition[:fullName], definition[:fallback])
+  end
+
+  return dc_data
+end
+
+#
+# Checks if the given identifier is valid to be used for an Opencast event
+#
+# identifier: string, to be used as the UID for an Opencast event
+#
+# Returns the identifier if it is valid, nil if not
+#
+def checkEventIdentifier(identifier)
+  # Check for nil & empty
+  if identifier.to_s.empty?
+    return nil
+  end
+
+  # Check for UUID conformity
+  uuid_regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  if !(identifier.to_s.downcase =~ uuid_regex)
+    BigBlueButton.logger.info( "The given identifier <#{identifier}> is not a valid UUID. Will be using generated UUID instead.")
+    return nil
+  end
+
+  # Check for existence in Opencast
+  existsInOpencast = true
+  begin
+    response = RestClient::Request.new(
+      :method => :get,
+      :url => $oc_server + "/api/events/" + identifier,
+      :user => $oc_user,
+      :password => $oc_password,
+    ).execute
+  rescue RestClient::Exception => e
+    existsInOpencast = false
+  end
+  if existsInOpencast
+    BigBlueButton.logger.info( "The given identifier <#{identifier}> already exists within Opencast. Will be using generated UUID instead.")
+    return nil
+  end
+
+  return identifier
+end
+
+#
+# Returns the metadata tags defined for user access list
+#
+# return: hash
+#
+def getAclMetadataDefinition()
+  return {:readRoles => "opencast-acl-read-roles",
+          :writeRoles => "opencast-acl-write-roles",
+          :userIds => "opencast-acl-user-id"}
+end
+
+#
+# Returns the metadata tags defined for series access list
+#
+# return: hash
+#
+def getSeriesAclMetadataDefinition()
+  return {:readRoles => "opencast-series-acl-read-roles",
+          :writeRoles => "opencast-series-acl-write-roles",
+          :userIds => "opencast-series-acl-user-id"}
+end
+
+#
+# Parses acl-relevant information from the metadata
+#
+# metadata: hash (string => string)
+#
+# return array of hash (symbol => string, symbol => string)
+#
+def parseAclMetadata(metadata, acl_metadata_definition, defaultReadRoles, defaultWriteRoles)
+  acl_data = []
+
+  # Read from global, configured-by-user variable
+  defaultReadRoles.to_s.split(",").each do |role|
+    acl_data.push( { :user => role, :permission => "read" } )
+  end
+  defaultWriteRoles.to_s.split(",").each do |role|
+    acl_data.push( { :user => role, :permission => "write" } )
+  end
+
+  # Read from Metadata
+  metadata[acl_metadata_definition[:readRoles]].to_s.split(",").each do |role|
+    acl_data.push( { :user => role, :permission => "read" } )
+  end
+  metadata[acl_metadata_definition[:writeRoles]].to_s.split(",").each do |role|
+    acl_data.push( { :user => role, :permission => "write" } )
+  end
+
+  metadata[acl_metadata_definition[:userIds]].to_s.split(",").each do |userId|
+    acl_data.push( { :user => "ROLE_USER_#{userId}", :permission => "read" } )
+    acl_data.push( { :user => "ROLE_USER_#{userId}", :permission => "write" } )
+  end
+
+  return acl_data
+end
+
+#
+# Creates a xml using the given role information
+#
+# roles: array of hash (symbol => string, symbol => string), containing user role and permission
+#
+# returns: string, the xml
+#
+def createAcl(roles)
+  header = Nokogiri::XML('<?xml version = "1.0" encoding = "UTF-8" standalone ="yes"?>')
+  builder = Nokogiri::XML::Builder.with(header) do |xml|
+    xml.Policy('PolicyId' => 'mediapackage-1',
+    'RuleCombiningAlgId' => 'urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:permit-overrides',
+    'Version' => '2.0',
+    'xmlns' => 'urn:oasis:names:tc:xacml:2.0:policy:schema:os') {
+      roles.each do |role|
+        xml.Rule('RuleId' => "#{role[:user]}_#{role[:permission]}_Permit", 'Effect' => 'Permit') {
+          xml.Target {
+            xml.Actions {
+              xml.Action {
+                xml.ActionMatch('MatchId' => 'urn:oasis:names:tc:xacml:1.0:function:string-equal') {
+                  xml.AttributeValue('DataType' => 'http://www.w3.org/2001/XMLSchema#string') { xml.text(role[:permission]) }
+                  xml.ActionAttributeDesignator('AttributeId' => 'urn:oasis:names:tc:xacml:1.0:action:action-id',
+                  'DataType' => 'http://www.w3.org/2001/XMLSchema#string')
+                }
+              }
+            }
+          }
+          xml.Condition{
+            xml.Apply('FunctionId' => 'urn:oasis:names:tc:xacml:1.0:function:string-is-in') {
+              xml.AttributeValue('DataType' => 'http://www.w3.org/2001/XMLSchema#string') { xml.text(role[:user]) }
+              xml.SubjectAttributeDesignator('AttributeId' => 'urn:oasis:names:tc:xacml:2.0:subject:role',
+              'DataType' => 'http://www.w3.org/2001/XMLSchema#string')
+            }
+          }
+        }
+      end
+    }
+  end
+
+  return builder.to_xml
+end
+
+#
+# Creates a xml using the given role information
+#
+# roles: array of hash (symbol => string, symbol => string), containing user role and permission
+#
+# returns: string, the xml
+#
+def createSeriesAcl(roles)
+  header = Nokogiri::XML('<?xml version = "1.0" encoding = "UTF-8" standalone ="yes"?>')
+  builder = Nokogiri::XML::Builder.with(header) do |xml|
+    xml.acl('xmlns' => 'http://org.opencastproject.security') {
+      roles.each do |role|
+        xml.ace {
+          xml.action { xml.text(role[:permission]) }
+          xml.allow { xml.text('true') }
+          xml.role { xml.text(role[:user]) }
+        }
+      end
+    }
+  end
+
+  return builder.to_xml
+end
+
+#
+# Recursively check if 2 Nokogiri nodes are the same
+# Does not check for attributes
+#
+# node1: The first Nokogiri node
+# node2: The second Nokogori node
+#
+# returns: boolean, true if the nodes are equal
+#
+def sameNodes?(node1, node2, truthArray=[])
+	if node1.nil? || node2.nil?
+		return false
+	end
+	if node1.name != node2.name
+		return false
+	end
+  if node1.text != node2.text
+          return false
+  end
+	node1Attrs = node1.attributes
+	node2Attrs = node2.attributes
+	node1Kids = node1.children
+	node2Kids = node2.children
+	node1Kids.zip(node2Kids).each do |pair|
+		truthArray << sameNodes?(pair[0],pair[1])
+	end
+	# if every value in the array is true, then the nodes are equal
+	return truthArray.all?
+end
+
+#
+# Extends a series ACL with given roles, if those roles are not already part of the ACL
+#
+# xml: A parsable xml string
+# roles: array of hash (symbol => string, symbol => string), containing user role and permission
+#
+# returns:
+#
+def updateSeriesAcl(xml, roles)
+
+  doc = Nokogiri::XML(xml)
+  newNodeSet = Nokogiri::XML::NodeSet.new(doc)
+
+  roles.each do |role|
+    newNode = nokogiri_node_creator(doc, "ace", "")
+    newNode << nokogiri_node_creator(doc, "action", role[:permission])
+    newNode <<  nokogiri_node_creator(doc, "allow", 'true')
+    newNode <<  nokogiri_node_creator(doc, "role", role[:user])
+
+    # Avoid adding duplicate nodes
+    nodeAlreadyExists = false
+    doc.xpath("//x:ace", "x" => "http://org.opencastproject.security").each do |oldNode|
+      if sameNodes?(oldNode, newNode)
+        nodeAlreadyExists = true
+        break
+      end
     end
+
+    if (!nodeAlreadyExists)
+      newNodeSet << newNode
+    end
+  end
+
+  doc.root << newNodeSet
+
+  return doc.to_xml
+end
+
+#
+# Will create a new series with the given Id, if such a series does not yet exist
+# Else will try to update the ACL of the series
+#
+# createSeriesId: string, the UID for the new series
+#
+def createSeries(createSeriesId, meeting_metadata, real_start_time)
+  BigBlueButton.logger.info( "Attempting to create a new series...")
+  # Check if a series with the given identifier does already exist
+  seriesExists = false
+  seriesFromOc = requestIngestAPI(:get, '/series/allSeriesIdTitle.json', DEFAULT_REQUEST_TIMEOUT, {})
+  begin
+    seriesFromOc = JSON.parse(seriesFromOc)
+    seriesFromOc["series"].each do |serie|
+      BigBlueButton.logger.info( "Found series: " + serie["identifier"].to_s)
+      if (serie["identifier"].to_s === createSeriesId.to_s)
+        seriesExists = true
+        BigBlueButton.logger.info( "Series already exists")
+        break
+      end
+    end
+  rescue JSON::ParserError  => e
+    BigBlueButton.logger.warn(" Could not parse series JSON, Exception #{e}")
+  end
+
+  # Create Series
+  if (!seriesExists)
+    BigBlueButton.logger.info( "Create a new series with ID " + createSeriesId)
+    # Create Series-DC
+    seriesDcData = parseDcMetadata(meeting_metadata, getSeriesDcMetadataDefinition(meeting_metadata, real_start_time))
+    seriesDublincore = createDublincore(seriesDcData)
+    # Create Series-ACL
+    seriesAcl = createSeriesAcl(parseAclMetadata(meeting_metadata, getSeriesAclMetadataDefinition(),
+                  $defaultSeriesRolesWithReadPerm, $defaultSeriesRolesWithWritePerm))
+    BigBlueButton.logger.info( "seriesAcl: " + seriesAcl.to_s)
+
+    requestIngestAPI(:post, '/series/', DEFAULT_REQUEST_TIMEOUT,
+    { :series => seriesDublincore,
+      :acl => seriesAcl,
+      :override => false})
+
+  # Update Series ACL
   else
-    return ""
+    BigBlueButton.logger.info( "Updating series ACL...")
+    seriesAcl = requestIngestAPI(:get, '/series/' + createSeriesId + '/acl.xml', DEFAULT_REQUEST_TIMEOUT, {})
+    roles = parseAclMetadata(meeting_metadata, getSeriesAclMetadataDefinition(), $defaultSeriesRolesWithReadPerm, $defaultSeriesRolesWithWritePerm)
+
+    if (roles.length > 0)
+      updatedSeriesAcl = updateSeriesAcl(seriesAcl, roles)
+      requestIngestAPI(:post, '/series/' + createSeriesId + '/accesscontrol', DEFAULT_REQUEST_TIMEOUT,
+        { :acl => updatedSeriesAcl,
+          :override => false})
+      BigBlueButton.logger.info( "Updated series ACL")
+    else
+      BigBlueButton.logger.info( "Nothing to update ACL with")
+    end
+>>>>>>> master
   end
 end
 
@@ -653,6 +1091,16 @@ if (File.file?(ACL_PATH))
   BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 else
   BigBlueButton.logger.info( "No ACL found, skipping adding ACL.")
+end
+# Add Shared Notes
+if ($sendSharedNotesEtherpadAsAttachment && File.file?(File.join(SHARED_NOTES_PATH, "notes.etherpad")))
+  mediapackage = requestIngestAPI(:post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
+                  {:mediaPackage => mediapackage,
+                  :flavor => "etherpad/sharednotes",
+                  :body => File.open(File.join(SHARED_NOTES_PATH, "notes.etherpad"), 'rb') })
+  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+else
+  BigBlueButton.logger.info( "Adding Shared notes is either disabled or the etherpad was not found, skipping adding Shared Notes Etherpad.")
 end
 # Ingest and start workflow
 response = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,

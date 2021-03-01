@@ -4,7 +4,8 @@ Post-Archive Integration
 **There is a known bug where the final video in Opencast will be too short due to missing parts of the recording. A
   workaround is currently not available for Opencast 8!!!, but will be available with Opencast 9.**
 - If you wish to have the workaround available in Opencast 8, you will have to backport [Opencast Pull Request #1898](https://github.com/opencast/opencast/pull/1898)
-
+    - You will also have to uncomment two lines in the `bbb-upload.xml`
+    
 The Idea
 --------
 
@@ -42,12 +43,14 @@ Setup BBB
 	    - Alternatively, you can use ROLE_CAPTURE_AGENT for more restricted access rights
 	- Change the remaining options how you like.
 - Disable the process and publish steps by calling: `sudo bbb-record --disable presentation`
-- Allow post scripts to call the `bbb-record` utility by adding the line `bigbluebutton ALL = NOPASSWD: /usr/bin/bbb-record` 
-  to `/etc/sudoers`
 - Ensure BBB is configured for recording. In `/usr/share/bbb-web/WEB-INF/classes/bigbluebutton.properties` the parameter
   `disableRecordingDefault` should be set to false.
 	- In the same file, set `autoStartRecording` to true and `allowStartStopRecording` to false to reflect the current limitations.
 	- For changes in bigbluebutton.properties to take effect, BBB needs to be restarted using `bbb-conf --restart`
+- Depending on your deployment process, the two above BBB configuration changes may get overwritten when updating BBB.
+  To ensure that does not happen, you can use `apply-config.sh` bash script offered by BBB (Details at: https://docs.bigbluebutton.org/2.2/customize.html#apply-confsh)
+- Allow post scripts to call the `bbb-record` utility by adding the line `bigbluebutton ALL = NOPASSWD: /usr/bin/bbb-record` 
+  to `/etc/sudoers`
 
 Setup Opencast
 --------
