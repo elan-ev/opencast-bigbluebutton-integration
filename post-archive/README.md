@@ -63,6 +63,18 @@ Setup Opencast
   variable `profile.import.image-frame.ffmpeg.command` the value 
   `-sseof -3 -i #{in.video.path} -update 1 -q:v 1 #{out.dir}/#{out.name}#{out.suffix}`. This is fixed in Opencast 8.7.
 
+Additional Setup when using Opencast 9
+--------
+- With Opencast 9.1 comes webcam support. To allow for webcam processing:
+    - Remove the following line from `post_archive.rb`
+    
+        `break   # Stop after first iteration to only send first webcam file found. TODO: Teach Opencast to deal with webcam file`
+    - Use `bbb-upload-9.xml` instead of `bbb-upload.xml`. Make sure to only have one of them in your Workflow directory.
+- With Opencast 9.2 comes automatic cutting support. This means that users can press start/stop recording in a BBB
+  meeting and it will have the desired effect. To enable automatic cutting support:
+     - Use `bbb-upload-9-2.xml` instead of `bbb-upload.xml`. Make sure to only have one of them in your Workflow directory.
+     - Revert certain changes in `/usr/share/bbb-web/WEB-INF/classes/bigbluebutton.properties`
+        - Set `autoStartRecording` to false and `allowStartStopRecording` to true 
 
 Limitations & Take Cares
 --------
