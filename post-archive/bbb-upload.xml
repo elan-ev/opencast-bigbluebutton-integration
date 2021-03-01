@@ -53,6 +53,21 @@
       </configurations>
     </operation>
 
+    <!--- Tag captions for publish to engage -->
+
+    <operation
+        id="tag"
+        max-attempts="2"
+        fail-on-error="true"
+        exception-handler-workflow="error"
+        description="Tagging captions for publishing to engage">
+      <configurations>
+        <configuration key="source-flavors">captions/*</configuration>
+        <configuration key="target-tags">+engage-download</configuration>
+        <configuration key="copy">false</configuration>
+      </configurations>
+    </operation>
+
     <!-- Save source in case of errors -->
 
     <operation
@@ -102,9 +117,11 @@
         <configuration key="concat-encoding-profile">concat.work</configuration>
         <configuration key="trim-encoding-profile">trim.work</configuration>
         <configuration key="force-encoding-profile">editor.work</configuration>
-        <!-- Not yet in Opencast! -->
+        <!-- Uncomment the lines below if you backported the PR #1898 -->
+        <!--
         <configuration key="preencode-encoding">true</configuration>
         <configuration key="preencode-encoding-profile">editor.work</configuration>
+        -->
       </configurations>
     </operation>
 
