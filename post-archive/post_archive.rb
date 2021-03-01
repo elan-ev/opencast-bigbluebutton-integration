@@ -802,7 +802,6 @@ def createSeries(createSeriesId, meeting_metadata, real_start_time)
     else
       BigBlueButton.logger.info( "Nothing to update ACL with")
     end
->>>>>>> master
   end
 end
 
