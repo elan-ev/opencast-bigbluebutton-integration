@@ -1185,7 +1185,7 @@ else
 end
 # Add Chat as subtitles
 if ($sendChatAsSubtitleAttachment && File.file?(CHAT_PATH))
-  mediapackage = requestIngestAPI(:post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
+  mediapackage = requestIngestAPI(:post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
                   {:mediaPackage => mediapackage,
                   :flavor => "captions/vtt+en",
                   :body => File.open(CHAT_PATH, 'rb') })
