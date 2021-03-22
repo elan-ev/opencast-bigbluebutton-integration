@@ -42,10 +42,13 @@ Setup BBB
 	  ROLE_ADMIN)
 	    - Alternatively, you can use ROLE_CAPTURE_AGENT for more restricted access rights
 	- Change the remaining options how you like.
+    - When using with Opencast 9.1 (or higher): Remove the following line from `post_archive.rb` to enable webcam support.    
+      `break   # Stop after first iteration to only send first webcam file found. TODO: Teach Opencast to deal with webcam file`
 - Disable the process and publish steps by calling: `sudo bbb-record --disable presentation`
 - Ensure BBB is configured for recording. In `/usr/share/bbb-web/WEB-INF/classes/bigbluebutton.properties` the parameter
   `disableRecordingDefault` should be set to false.
 	- In the same file, set `autoStartRecording` to true and `allowStartStopRecording` to false to reflect the current limitations.
+	    - Skip this step when using Opencast 9.2 with automatic recording enabled.
 	- For changes in bigbluebutton.properties to take effect, BBB needs to be restarted using `bbb-conf --restart`
 - Depending on your deployment process, the two above BBB configuration changes may get overwritten when updating BBB.
   To ensure that does not happen, you can use `apply-config.sh` bash script offered by BBB (Details at: https://docs.bigbluebutton.org/2.2/customize.html#apply-confsh)
@@ -56,34 +59,24 @@ Setup Opencast
 --------
 - In your Opencast installation, add the file `bbb-upload.xml` to the workflow folder (Likely located at `etc/workflows` 
   or `etc/opencast/workflows`)
+  - When using Opencast 9.1: Use `bbb-upload-9.xml` instead of `bbb-upload.xml` to also enable webcams. Make sure to only have one of them in your Workflow directory.
+  - When using Opencast 9.2 (or higher): Use `bbb-upload-9-2.xml` instead of `bbb-upload.xml` to also enable automatic cutting. Make sure to only have one of them in your Workflow directory.
 - Add the file `bbb-publish-after-cutting.xml`. This will add a new Publish option to the VideoEditor, which needs to be 
   used when cutting videos after they have been uploaded from BBB.
 - In the Admin-UI, create the user you entered in the post_archive.rb during "Setup BBB"
-- Apply a fix in the file `/etc/encoding/opencast-images.properties` by assigning the 
+- When using Opencast 8.6 or lower: Apply a fix in the file `/etc/encoding/opencast-images.properties` by assigning the 
   variable `profile.import.image-frame.ffmpeg.command` the value 
-  `-sseof -3 -i #{in.video.path} -update 1 -q:v 1 #{out.dir}/#{out.name}#{out.suffix}`. This is fixed in Opencast 8.7.
-
-Additional Setup when using Opencast 9
---------
-- With Opencast 9.1 comes webcam support. To allow for webcam processing:
-    - Remove the following line from `post_archive.rb`
-    
-        `break   # Stop after first iteration to only send first webcam file found. TODO: Teach Opencast to deal with webcam file`
-    - Use `bbb-upload-9.xml` instead of `bbb-upload.xml`. Make sure to only have one of them in your Workflow directory.
-- With Opencast 9.2 comes automatic cutting support. This means that users can press start/stop recording in a BBB
-  meeting and it will have the desired effect. To enable automatic cutting support:
-     - Use `bbb-upload-9-2.xml` instead of `bbb-upload.xml`. Make sure to only have one of them in your Workflow directory.
-     - Revert certain changes in `/usr/share/bbb-web/WEB-INF/classes/bigbluebutton.properties`
-        - Set `autoStartRecording` to false and `allowStartStopRecording` to true 
+  `-sseof -3 -i #{in.video.path} -update 1 -q:v 1 #{out.dir}/#{out.name}#{out.suffix}`.
 
 Limitations & Take Cares
 --------
-- Currently, only audio, deskshare, raw slides (no marks) and one webcam file are transmitted. 
-- After successfully transmitting the recording to Opencast, all data related to the recording on the BBB installation WILL BE DELETED!
-	- If you don't want that, comment out the line under the comment `# Delete all raw recording data` in the function `cleanup`
+- Currently, only audio, deskshare, raw slides (no marks) and one webcam file are transmitted.
+    - **When using Opencast 9.1** or higher, webcams can be enabled. This will generate a single video file from all the webcam recordings. Details can be found in the setup instructions.
 - Currently processes and publishes the WHOLE conference, not just when you click the start/stop recording button
 	- To get rid of the parts you don't want, use the video editor tool in Opencast
-	- If you want to automate this you'll require the open pull request https://github.com/opencast/opencast/pull/1686 and changes to the bbb-upload workflow
+	- **When using Opencast 9.2** or higher, automatic cutting can be enabled. This will cut the video files in accordance with the start/stop button being pressed. Details can be found in the setup instructions.
+- After successfully transmitting the recording to Opencast, all data related to the recording on the BBB installation WILL BE DELETED!
+	- If you don't want that, comment out the line under the comment `# Delete all raw recording data` in the function `cleanup`
 - The recording is published with a few default metadata values. To set further metadata, the frontend which creates the
   BBB-Meeting will need pass them when calling the `/create` API, so that BBB then may pass them on to Opencast. 
   An overview over the possible metadata can be found [here](https://github.com/elan-ev/opencast-bigbluebutton-integration).
