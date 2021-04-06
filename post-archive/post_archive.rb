@@ -2,7 +2,6 @@ require 'trollop'         #Commandline Parser
 require 'rest-client'     #Easier HTTP Requests
 require 'nokogiri'        #XML-Parser
 require 'fileutils'       #Directory Creation
-require 'mini_magick'     #Image Conversion
 require 'streamio-ffmpeg' #Accessing video information
 require File.expand_path('../../../lib/recordandplayback', __FILE__)  # BBB Utilities
 
@@ -213,11 +212,10 @@ def convertSlidesToVideo(presentationSlidesStart)
         FileUtils.mkdir_p(dirname)
       end
 
-      # Convert to png
-      image = MiniMagick::Image.open(originalLocation)
-      image.format 'png'
+      # Convert to png using command line tool rsvg-convert
+      image_format = 'png'
       pathToImage = File.join(dirname, changeFileExtensionTo(item["filename"], "png"))
-      image.write pathToImage
+      `rsvg-convert #{originalLocation} -f #{image_format} -o #{pathToImage}`
 
       # Convert to video
       # Scales the output to be divisible by 2
