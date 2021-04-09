@@ -14,13 +14,13 @@ require_relative 'oc_modules/oc_util'
 
 # Server URL
 # oc_server = 'https://develop.opencast.org'
-$oc_server = '{{opencast_server}}'
+$oc_server = 'http://my-opencast.org'
 
 # User credentials allowed to ingest via HTTP basic
 # oc_user = 'username'
 # oc_password = 'password'
-$oc_user = '{{opencast_user}}'
-$oc_password = '{{opencast_password}}'
+$oc_user = 'admin'
+$oc_password = 'opencast'
 
 # Workflow to use for ingest
 # oc_workflow = 'bbb-upload'
@@ -36,17 +36,17 @@ $sendChatAsSubtitleAttachment = false
 
 # Default roles for the event, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
 # Suggested default: ""
-$defaultRolesWithReadPerm = '{{opencast_rolesWithReadPerm}}'
-$defaultRolesWithWritePerm = '{{opencast_rolesWithWritePerm}}'
+$defaultRolesWithReadPerm = ''
+$defaultRolesWithWritePerm = ''
 
 # Whether a new series should be created if the given one does not exist yet
 # Suggested default: false
-$createNewSeriesIfItDoesNotYetExist = '{{opencast_createNewSeriesIfItDoesNotYetExist}}'
+$createNewSeriesIfItDoesNotYetExist = false
 
 # Default roles for the series, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
 # Suggested default: ""
-$defaultSeriesRolesWithReadPerm = '{{opencast_seriesRolesWithReadPerm}}'
-$defaultSeriesRolesWithWritePerm = '{{opencast_seriesRolesWithWritePerm}}'
+$defaultSeriesRolesWithReadPerm = ''
+$defaultSeriesRolesWithWritePerm = ''
 
 # The given dublincore identifier will also passed to the dublincore source tag,
 # even if the given identifier cannot be used as the actual identifier for the vent
@@ -55,12 +55,12 @@ $passIdentifierAsDcSource = false
 
 # Flow control booleans
 # Suggested default: false
-$onlyIngestIfRecordButtonWasPressed = '{{opencast_onlyIngestIfRecordButtonWasPressed}}'
+$onlyIngestIfRecordButtonWasPressed = ''
 
 # If a converted video already exists, don't overwrite it
 # This can save time when having to run this script on the same input multiple times
 # Suggested default: false
-$doNotConvertVideosAgain = true
+$doNotConvertVideosAgain = false
 
 # Monitor Opencast workflow state after ingest to determine whether the workflow was successful.
 # WARNING! Will stop processing of further recordings until the Opencast workflow completes. Do not use in production!
