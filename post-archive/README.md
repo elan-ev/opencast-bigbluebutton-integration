@@ -72,10 +72,11 @@ Limitations & Take Cares
 --------
 - Currently, only audio, deskshare, raw slides (no marks) and one webcam file are transmitted.
     - **When using Opencast 9.1** or higher, webcams can be enabled. This will generate a single video file from all the webcam recordings. Details can be found in the setup instructions.
+      - The webcam operation in Opencast CAN FAIL for a large number of webcams. Anything beyond 30 simultaneous webcams may lead to a workflow error.
 - Currently processes and publishes the WHOLE conference, not just when you click the start/stop recording button
 	- To get rid of the parts you don't want, use the video editor tool in Opencast
 	- **When using Opencast 9.2** or higher, automatic cutting can be enabled. This will cut the video files in accordance with the start/stop button being pressed. Details can be found in the setup instructions.
-- After successfully transmitting the recording to Opencast, all data related to the recording on the BBB installation WILL BE DELETED!
+- After successfully transmitting the recording to Opencast, all data related to the recording on the BBB installation WILL BE DELETED! IN CASE OF AN ERROR THIS CAN LEAD TO LOST DATA!
 	- If you don't want that, comment out the line under the comment `# Delete all raw recording data` in the function `cleanup`
 - The recording is published with a few default metadata values. To set further metadata, the frontend which creates the
   BBB-Meeting will need pass them when calling the `/create` API, so that BBB then may pass them on to Opencast. 
@@ -89,10 +90,13 @@ Limitations & Take Cares
   to change the BBB-Uploads workflows accordingly.
 - When editing a video in the Videoeditor after it has been uploaded from BBB, use the option *Publish (BBB)* instead of
   the normal Publish.
+- For longer meetings or meetings with high quality video files (e.g. a one hour and a half seminar with ten HD webcams and an HD screenshare), certain Opencast jobs will require quite a bit of working memory
+  - For the above example, at least 16GB of RAM are recommended for the workers
+  - There can still be errors in case multiple memory intensive jobs run on the same worker server at the same time. To help ensure that those jobs run in isolation, you can increase the "Job Load" for the "concat.work" encoding profile (found in `etc/encoding/opencast-movies.properties`). For information on how to correctly use job load, see the opencast documentation [here](https://docs.opencast.org/r/9.x/admin/#configuration/load/#step-3-setting-the-load-values-for-encoding-profiles).
 
 Troubleshooting
 --------
-1. Opencast didn't get any data
+1. General actions to take
 	- Check the logs
 		- `/var/log/bigbluebutton/bbb-rap-worker.log`, for potential exceptions
 		- `/var/log/bigbluebutton/post_archive.log`, for additional information
@@ -102,5 +106,14 @@ Troubleshooting
 	- If the problem could be resolved, try again
 		- Run `sudo bbb-record --rebuild *path/to/recording*` on your BBB installation
 		- `/var/bigbluebutton/recording/raw/` is where the raw recording data is stored
-2. Opencast failed
-	- ...
+2. The Opencast workflow failed
+	- Check if the bbb-upload workflow was used. If not, check your configuration and try ingesting from BBB again.
+	- Failed with an error message like "ffmpeg exited with error code 137"
+		- The opencast server likely ran out of working memory. Implement the steps described in "Limitations & Take Cares" and then try again.
+	- Failed with "VideoGridServiceException: No response from service"
+		 - The recording likely contains too many webcam videos. This is a current limitation in the Opencast workflow. Try again with significantly less webcam videos.
+4. The BBB logs contain "504 Request Timeout" errors
+	- Check if the recording arrived at Opencast or not. Sometimes Opencast will respond with an error even though there was none. This is a bug in Opencast.
+	- The timeout is due to Opencast processing time. Opencast inspects every media file before sending out a response. While this process has become dramatically faster since Opencast 8.10, it may still take longer than your (reverse) proxy timeout. In that case, you can try increasing your (reverse) proxy timeout to circumvent this problem.
+	- There is an actual network problem that prevents clean communication between BBB and Opencast.
+
