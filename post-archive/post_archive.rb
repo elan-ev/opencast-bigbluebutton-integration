@@ -249,7 +249,7 @@ def checkForTranscode(path, filename)
 
   if ($doNotConvertVideosAgain && File.exists?(outputPathToFile))
     BigBlueButton.logger.info( "Converted video for #{pathToFile} already exists, skipping...")
-    return path
+    return outputPathToFile
   end
 
   # Gather possible commands
