@@ -42,6 +42,11 @@ $deleteIfSuccessful = true
 # Suggested default: false
 $deleteByBBBCron = false
 
+# Send the webcam recording to Opencast.
+# If your Opencast is any version earlier than 9.1, you MUST set this to false.
+# Suggest default: true
+$addWebcamTracks = true
+
 # Adds the shared notes etherpad from a meeting to the attachments in Opencast
 # Suggested default: false
 $sendSharedNotesEtherpadAsAttachment = false
@@ -631,20 +636,8 @@ end
 #
 
 # Add webcam tracks
-# Exception: Once Opencast can handle multiple webcam files, this can be replaced by a collectFileInformation call
-webcamStart.each do |file|
-  if (File.exists?(File.join(file["filepath"], file["filename"])))
-    # File Integrity check
-    if (!FFMPEG::Movie.new(File.join(file["filepath"], file["filename"])).valid?)
-      BigBlueButton.logger.info( "The file #{File.join(file["filepath"], file["filename"])} is ffmpeg-invalid and won't be ingested")
-      continue
-    end
-    tracks.push( { "flavor": 'presenter/source',
-                   "startTime": file["timestamp"] - real_start_time,
-                   "path": File.join(file["filepath"], file["filename"])
-    } )
-    break   # Stop after first iteration to only send first webcam file found. TODO: Teach Opencast to deal with webcam files
-  end
+if ($addWebcamTracks)
+  tracks = collectFileInformation(tracks, 'presenter/source', webcamStart, real_start_time)
 end
 # Add audio tracks (Likely to be only one track)
 tracks = collectFileInformation(tracks, 'presentation/source', audioStart, real_start_time)

@@ -27,9 +27,8 @@ bbb-publish-after-cutting.xml: An Opencast workflow for publish an even that was
 
 Setup BBB
 --------
-- If the required ruby gems are not yet installed, manually install the ruby gems mentioned under requirements via `gem 
-  install *name*`. They are used by the post_archive.rb script.
-- Place the script `post_archive.rb` in 
+- If the required ruby gems are not yet installed, manually install the ruby gems mentioned under requirements via `gem install *name*`. They are used by the post_archive.rb script.
+- Place the script `post_archive.rb` in
     
     `/usr/local/bigbluebutton/core/scripts/post_archive/`
     
@@ -38,12 +37,11 @@ Setup BBB
     `/usr/local/bigbluebutton/core/scripts/post_archive/oc_modules`
 - In the script `post_archive.rb`, change the global variables in the "opencast configuration":
 	- In `post_archive.rb`, change the variable `$oc_server` to point to your Opencast installation
-	- Also change `$oc_user` and `oc_password` to a user of your opencast installation that is allowed to ingest (e.g. 
-	  ROLE_ADMIN)
-	    - Alternatively, you can use ROLE_CAPTURE_AGENT for more restricted access rights
+	- Also change `$oc_user` and `oc_password` to a user of your opencast installation that is allowed to ingest (e.g. ROLE_ADMIN)
+		- Alternatively, you can use ROLE_CAPTURE_AGENT for more restricted access rights
+	- When using with any Opencast version earlier than 9.1: Set `$addWebcamTracks` to `false`.
 	- Change the remaining options how you like.
-    - When using with Opencast 9.1 (or higher): Remove the following line from `post_archive.rb` to enable webcam support.    
-      `break   # Stop after first iteration to only send first webcam file found. TODO: Teach Opencast to deal with webcam file`
+
 - Disable the process and publish steps by calling: `sudo bbb-record --disable presentation`
 - Ensure BBB is configured for recording. In `/usr/share/bbb-web/WEB-INF/classes/bigbluebutton.properties` the parameter
   `disableRecordingDefault` should be set to false.
@@ -52,25 +50,20 @@ Setup BBB
 	- For changes in bigbluebutton.properties to take effect, BBB needs to be restarted using `bbb-conf --restart`
 - Depending on your deployment process, the two above BBB configuration changes may get overwritten when updating BBB.
   To ensure that does not happen, you can use `apply-config.sh` bash script offered by BBB (Details at: https://docs.bigbluebutton.org/2.2/customize.html#apply-confsh)
-- Allow post scripts to call the `bbb-record` utility by adding the line `bigbluebutton ALL = NOPASSWD: /usr/bin/bbb-record` 
-  to `/etc/sudoers`
+- Allow post scripts to call the `bbb-record` utility by adding the line `bigbluebutton ALL = NOPASSWD: /usr/bin/bbb-record` to `/etc/sudoers`
 
 Setup Opencast
 --------
-- In your Opencast installation, add the file `bbb-upload.xml` to the workflow folder (Likely located at `etc/workflows` 
-  or `etc/opencast/workflows`)
+- In your Opencast installation, add the file `bbb-upload.xml` to the workflow folder (Likely located at `etc/workflows` or `etc/opencast/workflows`)
   - When using Opencast 9.1: Use `bbb-upload-9.xml` instead of `bbb-upload.xml` to also enable webcams. Make sure to only have one of them in your Workflow directory.
   - When using Opencast 9.2 (or higher): Use `bbb-upload-9-2.xml` instead of `bbb-upload.xml` to also enable automatic cutting. Make sure to only have one of them in your Workflow directory.
-- Add the file `bbb-publish-after-cutting.xml`. This will add a new Publish option to the VideoEditor, which needs to be 
-  used when cutting videos after they have been uploaded from BBB.
+- Add the file `bbb-publish-after-cutting.xml`. This will add a new Publish option to the VideoEditor, which needs to be used when cutting videos after they have been uploaded from BBB.
 - In the Admin-UI, create the user you entered in the post_archive.rb during "Setup BBB"
-- When using Opencast 8.6 or lower: Apply a fix in the file `/etc/encoding/opencast-images.properties` by assigning the 
-  variable `profile.import.image-frame.ffmpeg.command` the value 
-  `-sseof -3 -i #{in.video.path} -update 1 -q:v 1 #{out.dir}/#{out.name}#{out.suffix}`.
+- When using Opencast 8.6 or lower: Apply a fix in the file `/etc/encoding/opencast-images.properties` by assigning the variable `profile.import.image-frame.ffmpeg.command` the value `-sseof -3 -i #{in.video.path} -update 1 -q:v 1 #{out.dir}/#{out.name}#{out.suffix}`.
 
 Limitations & Take Cares
 --------
-- Currently, only audio, deskshare, raw slides (no marks) and one webcam file are transmitted.
+- Currently, only audio, deskshare and raw slides (no marks) are transmitted.
     - **When using Opencast 9.1** or higher, webcams can be enabled. This will generate a single video file from all the webcam recordings. Details can be found in the setup instructions.
       - The webcam operation in Opencast CAN FAIL for a large number of webcams. Anything beyond 30 simultaneous webcams may lead to a workflow error.
 - Currently processes and publishes the WHOLE conference, not just when you click the start/stop recording button
@@ -100,7 +93,7 @@ Troubleshooting
 	- Check the logs
 		- `/var/log/bigbluebutton/bbb-rap-worker.log`, for potential exceptions
 		- `/var/log/bigbluebutton/post_archive.log`, for additional information
-	- Secure the recording data 
+	- Secure the recording data
 		- Or else it might get lost during regularly scheduled clean-ups
 		- `/var/bigbluebutton/recording/raw/` is where the raw recording data is stored
 	- If the problem could be resolved, try again
