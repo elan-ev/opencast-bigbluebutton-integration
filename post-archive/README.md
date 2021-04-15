@@ -76,8 +76,8 @@ Limitations & Take Cares
 - Currently processes and publishes the WHOLE conference, not just when you click the start/stop recording button
 	- To get rid of the parts you don't want, use the video editor tool in Opencast
 	- **When using Opencast 9.2** or higher, automatic cutting can be enabled. This will cut the video files in accordance with the start/stop button being pressed. Details can be found in the setup instructions.
-- After successfully transmitting the recording to Opencast, all data related to the recording on the BBB installation WILL BE DELETED! IN CASE OF AN ERROR THIS CAN LEAD TO LOST DATA!
-	- If you don't want that, comment out the line under the comment `# Delete all raw recording data` in the function `cleanup`
+- After successfully transmitting the recording to Opencast, all data related to the recording on the BBB installation WILL BE DELETED! While Opencast will immediately make a snapshot upon receiving the recording data, IN CASE OF AN ERROR THIS CAN LEAD TO LOST DATA!
+	- If you don't want that, set the variable `$deleteIfSuccessful` to `false`.
 - The recording is published with a few default metadata values. To set further metadata, the frontend which creates the
   BBB-Meeting will need pass them when calling the `/create` API, so that BBB then may pass them on to Opencast. 
   An overview over the possible metadata can be found [here](https://github.com/elan-ev/opencast-bigbluebutton-integration).

@@ -26,6 +26,22 @@ $oc_password = 'opencast'
 # oc_workflow = 'bbb-upload'
 $oc_workflow = 'bbb-upload'
 
+# Removes the raw recording data from BBB if the script sent all the data to Opencast successfully.
+# Set to false if there are other post_archive scripts after this one, or else they will
+# likely fail due to the missing data.
+# Although data will only ever be deleted after the script was successful and the first thing
+# Opencast does (in the bbb-upload Workflow) is to make a snapshot of all the data it got,
+# there may still be edge cases where data loss can occur. If you absolutely cannot accept
+# any data loss, set this option to false.
+# Suggested default: true
+$deleteIfSuccessful = true
+
+# Marks the raw recording data for deletion by the BBB clean-up cron job.
+# This will have no effect if the cron job is disabled.
+# This will have no effect if "$deleteIfSuccessful" is set to true.
+# Suggested default: false
+$deleteByBBBCron = false
+
 # Adds the shared notes etherpad from a meeting to the attachments in Opencast
 # Suggested default: false
 $sendSharedNotesEtherpadAsAttachment = false
@@ -481,9 +497,18 @@ def cleanup(tmp_path, meeting_id)
   # Delete temporary files
   FileUtils.rm_rf(tmp_path)
 
+  # Inform BBB that the recording was successfully processed
+  if ($deleteByBBBCron)
+    BigBlueButton.logger.info( "Inform BBB daily cron about the \"successful publish\" of this meeting #{meeting_id}")
+    File.open("/var/bigbluebutton/recording/status/published/#{meeting_id}-presentation.done", ["w"]) {|f| f.write("Published #{meeting_id}") }
+  end
+
   # Delete all raw recording data
   # TODO: Find a way to outsource this into a script that runs after all post_archive scripts have run successfully
-  system('sudo', 'bbb-record', '--delete', "#{meeting_id}") || raise('Failed to delete local recording')
+  if ($deleteIfSuccessful)
+    BigBlueButton.logger.info( "Attempting to delete raw recording data for meeting #{meeting_id}")
+    system('sudo', 'bbb-record', '--delete', "#{meeting_id}") || raise('Failed to delete local recording')
+  end
 end
 
 #########################################################
