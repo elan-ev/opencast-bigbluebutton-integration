@@ -101,8 +101,6 @@
         <configuration key="source-flavors">presenter/source</configuration>
         <configuration key="source-smil-flavor">smil/source+partial</configuration>
         <configuration key="concat-encoding-profile">concat-samecodec.work</configuration>
-        <configuration key="opt-resolution">1920x360</configuration>
-        <configuration key="opt-background-color">0xFF00FF</configuration>
         <configuration key="target-flavor">presenter/withoutAudio</configuration>
       </configurations>
     </operation>
