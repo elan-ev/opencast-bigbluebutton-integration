@@ -17,7 +17,8 @@ Requirements
 --------
 - Opencast 8.4 (or later)
 - BigBlueButton 2.2 (or later)
-	- Ruby gems: rest-client, fileutils, mini_magick, streamio-ffmpeg
+	- Ruby gems: rest-client, fileutils, streamio-ffmpeg
+  - Command line tools: rsvg-convert
 
 Files:
 --------
@@ -28,6 +29,7 @@ bbb-publish-after-cutting.xml: An Opencast workflow for publish an even that was
 Setup BBB
 --------
 - If the required ruby gems are not yet installed, manually install the ruby gems mentioned under requirements via `gem install *name*`. They are used by the post_archive.rb script.
+- Install the command line tool rsvg-convert: `sudo apt-get install librsvg2-bin`
 - Place the script `post_archive.rb` in
     
     `/usr/local/bigbluebutton/core/scripts/post_archive/`
