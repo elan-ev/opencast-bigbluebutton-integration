@@ -734,7 +734,8 @@ else
 end
 # Add Shared Notes
 if ($sendSharedNotesEtherpadAsAttachment && File.file?(File.join(SHARED_NOTES_PATH, "notes.etherpad")))
-  mediapackage = requestIngestAPI(:post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
+  mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+                  :post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
                   {:mediaPackage => mediapackage,
                   :flavor => "etherpad/sharednotes",
                   :body => File.open(File.join(SHARED_NOTES_PATH, "notes.etherpad"), 'rb') })
@@ -744,7 +745,8 @@ else
 end
 # Add Chat as subtitles
 if ($sendChatAsSubtitleAttachment && File.file?(CHAT_PATH))
-  mediapackage = requestIngestAPI(:post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
+  mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+                  :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
                   {:mediaPackage => mediapackage,
                   :flavor => "captions/vtt+en",
                   :body => File.open(CHAT_PATH, 'rb') })
