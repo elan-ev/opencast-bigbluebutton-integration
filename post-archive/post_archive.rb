@@ -54,6 +54,10 @@ $sendSharedNotesEtherpadAsAttachment = false
 # Suggested default: false
 $sendChatAsSubtitleAttachment = false
 
+# Adds the presentations from a meeting to the attachments in Opencast as PDF files
+# Suggested default: false
+$sendPresentationsAsPdf = false
+
 # Default roles for the event, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
 # Suggested default: ""
 $defaultRolesWithReadPerm = ''
@@ -751,6 +755,23 @@ if ($sendChatAsSubtitleAttachment && File.file?(CHAT_PATH))
   BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 else
   BigBlueButton.logger.info( "Adding Chat as subtitles is either disabled or there was no chat, skipping adding Chat as subtitles.")
+end
+# Add presentations
+if ($sendPresentationsAsPdf)
+  presentationNames = presentationSlidesStart.map{|item| item["presentationName"]}.uniq
+  presentationNames.each do |presentationName|
+    presentationFilePath = File.join(PRESENTATION_PATH, presentationName, presentationName + ".pdf")
+    if (File.exists?(presentationFilePath))
+      mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+                    :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
+                    {:mediaPackage => mediapackage,
+                    :flavor => "presentation/pdf",
+                    :body => File.open(presentationFilePath, 'rb') })
+    end
+  end
+  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+else
+  BigBlueButton.logger.info( "Adding Presentations as PDFs is either disabled or there were no presentations, skipping adding Presentations as PDFs.")
 end
 # Ingest and start workflow
 response = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
