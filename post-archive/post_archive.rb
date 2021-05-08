@@ -236,7 +236,7 @@ def convertSlidesToVideo(presentationSlidesStart)
       # Convert to png using command line tool rsvg-convert
       image_format = 'png'
       pathToImage = File.join(dirname, changeFileExtensionTo(item["filename"], "png"))
-      `rsvg-convert #{originalLocation} -f #{image_format} --width 2560 -o #{pathToImage}`
+      `rsvg-convert #{originalLocation} -f #{image_format} --width 2560 --background-color white -o #{pathToImage}`
 
       # Convert to video
       # Scales the output to be divisible by 2
