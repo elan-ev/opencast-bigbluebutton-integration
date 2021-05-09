@@ -703,6 +703,15 @@ if ($config.dig(:addFiles, :sharedNotesEtherpadAsAttachment) && File.file?(File.
                   :flavor => "etherpad/sharednotes",
                   :body => File.open(File.join(SHARED_NOTES_PATH, "notes.etherpad"), 'rb') })
   BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+  if (File.file?(File.join(SHARED_NOTES_PATH, "notes.html")))
+    mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+                    :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
+                    {:mediaPackage => mediapackage,
+                    :flavor => "html/sharednotes",
+                    :body => File.open(File.join(SHARED_NOTES_PATH, "notes.html"), 'rb') })
+  else
+    BigBlueButton.logger.info( "No HTML source for shared notes found.")
+  end
 else
   BigBlueButton.logger.info( "Adding Shared notes is either disabled or the etherpad was not found, skipping adding Shared Notes Etherpad.")
 end
