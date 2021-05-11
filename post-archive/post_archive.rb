@@ -54,7 +54,8 @@ $sendSharedNotesEtherpadAsAttachment = false
 # Suggested default: false
 $sendChatAsSubtitleAttachment = false
 
-# Adds the presentations from a meeting to the attachments in Opencast as PDF files
+# Add all uploaded presentations from a meeting to the attachments in Opencast as PDF files.
+# Please make sure to use this feature respectfully.
 # Suggested default: false
 $sendPresentationsAsPdf = false
 
