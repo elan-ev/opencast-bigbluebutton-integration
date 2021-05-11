@@ -659,7 +659,8 @@ BigBlueButton.logger.info( tracks)
 
 # Create metadata file dublincore
 dc_data = OcDublincore::parseDcMetadata(meeting_metadata, startTime: real_start_time, endTime: real_end_time,
-                                        server: $oc_server, user: $oc_user, password: $oc_password)dublincore = OcDublincore::createDublincore(dc_data)
+                                        server: $oc_server, user: $oc_user, password: $oc_password)
+dublincore = OcDublincore::createDublincore(dc_data)
 BigBlueButton.logger.info( "Dublincore: \n" + dublincore.to_s)
 
 # Create Json containing cutting marks at path
