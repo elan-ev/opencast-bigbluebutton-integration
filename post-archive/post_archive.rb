@@ -738,7 +738,7 @@ end
 # Add Shared Notes
 if ($sendSharedNotesEtherpadAsAttachment && File.file?(File.join(SHARED_NOTES_PATH, "notes.etherpad")))
   mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
-                  :post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
+                  :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
                   {:mediaPackage => mediapackage,
                   :flavor => "etherpad/sharednotes",
                   :body => File.open(File.join(SHARED_NOTES_PATH, "notes.etherpad"), 'rb') })
