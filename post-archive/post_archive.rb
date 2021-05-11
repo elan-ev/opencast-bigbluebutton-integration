@@ -610,9 +610,6 @@ presentationSlidesStart = parseTimeStampsPresentation(doc, 'GotoSlideEvent', pre
 presentationSlidesStart = convertSlidesToVideo(presentationSlidesStart)
 
 # Check and process any videos if they need to be prepared before Opencast can process them
-deskshareStart.each do |share|
-  share["filepath"] = checkForTranscode(share["filepath"], share["filename"])
-end
 webcamStart.each do |share|
   share["filepath"] = checkForTranscode(share["filepath"], share["filename"])
 end
