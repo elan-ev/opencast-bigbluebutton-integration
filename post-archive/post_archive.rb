@@ -768,11 +768,14 @@ if ($sendPresentationsAsPdf)
                     {:mediaPackage => mediapackage,
                     :flavor => "presentation/pdf",
                     :body => File.open(presentationFilePath, 'rb') })
+      BigBlueButton.logger.info( "Added presentation: #{presentationFilePath}")
+    else
+      BigBlueButton.logger.info( "Could not add: #{presentationFilePath}. File does not exist.")
     end
   end
   BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 else
-  BigBlueButton.logger.info( "Adding Presentations as PDFs is either disabled or there were no presentations, skipping adding Presentations as PDFs.")
+  BigBlueButton.logger.info( "Adding Presentations as PDFs is disabled, skipping adding Presentations as PDFs.")
 end
 # Ingest and start workflow
 response = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
