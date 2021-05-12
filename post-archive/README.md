@@ -17,7 +17,7 @@ Requirements
 --------
 - Opencast 8.4 (or later)
 - BigBlueButton 2.2 (or later)
-	- Ruby gems: rest-client, fileutils, streamio-ffmpeg
+	- Ruby gems: rest-client, fileutils, streamio-ffmpeg, toml-rb
   - Command line tools: rsvg-convert
 
 Files:
@@ -33,15 +33,17 @@ Setup BBB
 - Place the script `post_archive.rb` in
     
     `/usr/local/bigbluebutton/core/scripts/post_archive/`
+
+    Place the configuration file `post_archive_config.toml` in the same location.
     
-    Place the folder `oc_modules` from the top-level of this repository in the same location. 
+    Place the folder `oc_modules` from the top-level of this repository in the same location.
     
     `/usr/local/bigbluebutton/core/scripts/post_archive/oc_modules`
-- In the script `post_archive.rb`, change the global variables in the "opencast configuration":
-	- In `post_archive.rb`, change the variable `$oc_server` to point to your Opencast installation
-	- Also change `$oc_user` and `oc_password` to a user of your opencast installation that is allowed to ingest (e.g. ROLE_ADMIN)
+- In the config `post_archive_config.toml`, change the variables in the "opencast" group:
+	- Change the variable `server` to point to your Opencast installation
+	- Also change `user` and `password` to a user of your opencast installation that is allowed to ingest (e.g. ROLE_ADMIN)
 		- Alternatively, you can use ROLE_CAPTURE_AGENT for more restricted access rights
-	- When using with any Opencast version earlier than 9.1: Set `$addWebcamTracks` to `false`.
+	- When using with any Opencast version earlier than 9.1: In the group `addFiles`, set `webcamTracks` to `false`.
 	- Change the remaining options how you like.
 
 - Disable the process and publish steps by calling: `sudo bbb-record --disable presentation`
