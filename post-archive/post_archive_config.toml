@@ -15,7 +15,7 @@ password = 'opencast'
 
 # Workflow to use for ingest
 # Example: workflow = 'bbb-upload'
-workflow = 'bbb-upload' #'test-bbb-upload-withPreview'
+workflow = 'bbb-upload'
 
 
 # Which additional files you want to send to Opencastr
@@ -27,16 +27,16 @@ webcamTracks = true
 
 # Adds the shared notes etherpad from a meeting to the attachments in Opencast
 # Default: false
-sharedNotesEtherpadAsAttachment = true
+sharedNotesEtherpadAsAttachment = false
 
 # Adds the public chat from a meeting to the attachments in Opencast as a subtitle file
 # Default: false
-chatAsSubtitleAttachment = true
+chatAsSubtitleAttachment = false
 
 # Add all uploaded presentations from a meeting to the attachments in Opencast as PDF files.
 # Please make sure to use this feature respectfully.
 # Default: false
-presentationsAsPdf = true
+presentationsAsPdf = false
 
 
 # If and how the script should delete raw recording files from BBB
@@ -75,12 +75,12 @@ seriesWritePerm = ""
 [miscellaneous]
 # Whether a new series should be created if the given one does not exist yet
 # Default: false
-createNewSeriesIfItDoesNotYetExist = true
+createNewSeriesIfItDoesNotYetExist = false
 
 # The given dublincore identifier will also passed to the dublincore source tag,
 # even if the given identifier cannot be used as the actual identifier for the vent
 # Default: false
-passIdentifierAsDcSource = true
+passIdentifierAsDcSource = false
 
 # Default: false
 onlyIngestIfRecordButtonWasPressed = false
@@ -88,7 +88,7 @@ onlyIngestIfRecordButtonWasPressed = false
 # If a converted video already exists, don't overwrite it
 # This can save time when having to run this script on the same input multiple times
 # Default: false
-doNotConvertVideosAgain = true
+doNotConvertVideosAgain = false
 
 
 # Monitor Opencast workflow state after ingest to determine whether the workflow was successful.
