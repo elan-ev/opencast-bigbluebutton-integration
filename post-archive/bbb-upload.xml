@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <definition xmlns="http://workflow.opencastproject.org">
 
-  <id>bbb-upload</id>
-  <title>BigBlueButton Upload</title>
+  <id>bbb-upload-test</id>
+  <title>test BigBlueButton Upload</title>
   <tags>
     <tag>archive</tag>
+    <tag>upload</tag>
   </tags>
   <displayOrder>1000</displayOrder>
   <description>
@@ -218,3 +219,4 @@
   </operations>
 
 </definition>
+
