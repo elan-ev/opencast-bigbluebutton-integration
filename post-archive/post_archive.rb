@@ -598,7 +598,7 @@ end
 #
 
 # Add webcam tracks
-if ($config.dig(:addFiles, :addWebcamTracks))
+if ($config.dig(:addFiles, :webcamTracks))
   tracks = collectFileInformation(tracks, 'presenter/source', webcamStart, real_start_time)
 end
 # Add audio tracks (Likely to be only one track)
