@@ -200,7 +200,8 @@ module OcDublincore
     node_set << OcUtil::nokogiriNodeCreator(doc, 'dcterms:rightsHolder', dc_data[:rightsHolder])  if dc_data[:rightsHolder]
     node_set << OcUtil::nokogiriNodeCreator(doc, 'dcterms:license', dc_data[:license])            if dc_data[:license]
     node_set << OcUtil::nokogiriNodeCreator(doc, 'dcterms:publisher', dc_data[:publisher])        if dc_data[:publisher]
-    node_set << OcUtil::nokogiriNodeCreator(doc, 'dcterms:temporal', dc_data[:temporal])          if dc_data[:temporal]
+    node_set << OcUtil::nokogiriNodeCreator(doc, 'dcterms:temporal', dc_data[:temporal],
+                                            [{name: "xsi:type", value: "dcterms:Period"}])        if dc_data[:temporal]
     node_set << OcUtil::nokogiriNodeCreator(doc, 'dcterms:source', dc_data[:source])              if dc_data[:source]
 
     # Add nodes
