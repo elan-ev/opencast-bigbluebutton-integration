@@ -32,6 +32,7 @@ config_defaults = {
   },
   miscellaneous: {
     createNewSeriesIfItDoesNotYetExist: false,
+    skipProcessingIfNoSeriesIdSet: true,
     passIdentifierAsDcSource: false,
     onlyIngestIfRecordButtonWasPressed: false,
     doNotConvertVideosAgain: false,
@@ -503,6 +504,15 @@ archived_files = "/var/bigbluebutton/recording/raw/#{meeting_id}"
 meeting_metadata = BigBlueButton::Events.get_meeting_metadata("#{archived_files}/events.xml")
 xml_path = archived_files +"/events.xml"
 BigBlueButton.logger.info("Series id: #{meeting_metadata["opencast-series-id"]}")
+
+if ($config.dig(:miscellaneous, :skipProcessingIfNoSeriesIdSet))
+  seriesId = meeting_metadata["opencast-dc-ispartof"]
+  if (seriesId.to_s.empty?)
+    BigBlueButton.logger.info("Series ID not found. Processing will continue with BBB defaults.")
+    # Just exit, do NOT clean up!
+    exit 0
+  end
+end
 
 # Variables
 mediapackage = ''
