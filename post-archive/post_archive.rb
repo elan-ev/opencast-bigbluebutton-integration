@@ -44,7 +44,7 @@ config_defaults = {
 }
 
 # Parse configuration from config file
-$config = TomlRB.load_file('post_archive_config.toml', symbolize_keys: true)
+$config = TomlRB.load_file(__dir__ + '/post_archive_config.toml', symbolize_keys: true)
 BigBlueButton.logger.info( $config)
 BigBlueButton.logger.info( $config.dig(:opencast, :server))
 
