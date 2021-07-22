@@ -1,0 +1,102 @@
+### opencast configuration begin
+
+# Variables for accessing Opencast
+# Make sure change these to your Opencast installation
+[opencast]
+# Server URL
+# Example: server = 'https://develop.opencast.org'
+server = 'http://localhost:8080'
+
+# User credentials allowed to ingest via HTTP basic
+# Example: user = 'username'
+# Example: password = 'password'
+user = 'admin'
+password = 'opencast'
+
+# Workflow to use for ingest
+# Example: workflow = 'bbb-upload'
+workflow = 'bbb-upload'
+
+
+# Which additional files you want to send to Opencastr
+[addFiles]
+# Send the webcam recordings to Opencast.
+# If your Opencast is any version earlier than 9.1, you MUST set this to false.
+# Default: true
+webcamTracks = true
+
+# Adds the shared notes etherpad from a meeting to the attachments in Opencast
+# Default: false
+sharedNotesEtherpadAsAttachment = false
+
+# Adds the public chat from a meeting to the attachments in Opencast as a subtitle file
+# Default: false
+chatAsSubtitleAttachment = false
+
+# Add all uploaded presentations from a meeting to the attachments in Opencast as PDF files.
+# Please make sure to use this feature respectfully.
+# Default: false
+presentationsAsPdf = false
+
+
+# If and how the script should delete raw recording files from BBB
+[cleanUp]
+# Removes the raw recording data from BBB if the script sent all the data to Opencast successfully.
+# Set to false if there are other post_archive scripts after this one, or else they will
+# likely fail due to the missing data.
+# Although data will only ever be deleted after the script was successful and the first thing
+# Opencast does (in the bbb-upload Workflow) is to make a snapshot of all the data it got,
+# there may still be edge cases where data loss can occur. If you absolutely cannot accept
+# any data loss, set this option to false.
+# Default: true
+deleteIfSuccessful = true
+
+# Marks the raw recording data for deletion by the BBB clean-up cron job.
+# This will have no effect if the cron job is disabled.
+# This will have no effect if "deleteIfSuccessful" is set to true.
+# Default: false
+deleteByBBBCron = false
+
+
+# Allows you to add default Opencast roles to every recording
+[defaultRoles]
+# Default roles for the event, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
+# Default: ""
+readPerm = ""
+writePerm = ""
+
+# Default roles for the series, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
+# Default: ""
+seriesReadPerm = ""
+seriesWritePerm = ""
+
+
+# Various other options
+[miscellaneous]
+# Whether a new series should be created if the given one does not exist yet
+# Default: false
+createNewSeriesIfItDoesNotYetExist = false
+
+# The given dublincore identifier will also passed to the dublincore source tag,
+# even if the given identifier cannot be used as the actual identifier for the vent
+# Default: false
+passIdentifierAsDcSource = false
+
+# Default: false
+onlyIngestIfRecordButtonWasPressed = false
+
+# If a converted video already exists, don't overwrite it
+# This can save time when having to run this script on the same input multiple times
+# Default: false
+doNotConvertVideosAgain = false
+
+
+# Monitor Opencast workflow state after ingest to determine whether the workflow was successful.
+# EXPERIMENTIAL! This may cause the process spawned from this script to run a lot longer than anticipated.
+[monitoring]
+# Default: false
+monitorOpencastAfterIngest = false
+# Time between each state check in seconds
+secondsBetweenChecks = 300
+# Fail-safe. Time in seconds until the process is terminated no matter what.
+secondsUntilGiveUpMax = 86400

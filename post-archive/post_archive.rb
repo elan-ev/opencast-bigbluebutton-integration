@@ -3,101 +3,63 @@ require 'rest-client'     #Easier HTTP Requests
 require 'nokogiri'        #XML-Parser
 require 'fileutils'       #Directory Creation
 require 'streamio-ffmpeg' #Accessing video information
+require 'toml-rb'         #Parse values from config file
 require File.expand_path('../../../lib/recordandplayback', __FILE__)  # BBB Utilities
 
 require_relative 'oc_modules/oc_dublincore'
 require_relative 'oc_modules/oc_acl'
 require_relative 'oc_modules/oc_util'
 
-### opencast configuration begin
+### Load configuration begin
 
-# Server URL
-# oc_server = 'https://develop.opencast.org'
-$oc_server = 'http://my-opencast.org'
+# Define default config values
+config_defaults = {
+  addFiles: {
+    webcamTracks: true,
+    sharedNotesEtherpadAsAttachment: false,
+    chatAsSubtitleAttachment: false,
+    presentationsAsPdf: false,
+  },
+  cleanUp: {
+    deleteIfSuccessful: true,
+    deleteByBBBCron: false,
+  },
+  defaultRoles: {
+    readPerm: "",
+    writePerm: "",
+    seriesReadPerm: "",
+    seriesWritePerm: "",
+  },
+  miscellaneous: {
+    createNewSeriesIfItDoesNotYetExist: false,
+    passIdentifierAsDcSource: false,
+    onlyIngestIfRecordButtonWasPressed: false,
+    doNotConvertVideosAgain: false,
+  },
+  monitoring: {
+    monitorOpencastAfterIngest: false,
+    secondsBetweenChecks: 300,
+    secondsUntilGiveUpMax: 86400,
+  },
+}
 
-# User credentials allowed to ingest via HTTP basic
-# oc_user = 'username'
-# oc_password = 'password'
-$oc_user = 'admin'
-$oc_password = 'opencast'
+# Parse configuration from config file
+$config = TomlRB.load_file(__dir__ + '/post_archive_config.toml', symbolize_keys: true)
+BigBlueButton.logger.info( $config)
+BigBlueButton.logger.info( $config.dig(:opencast, :server))
 
-# Workflow to use for ingest
-# oc_workflow = 'bbb-upload'
-$oc_workflow = 'bbb-upload'
+# Check for essential values
+$config[:opencast].each do |oc_key, oc_value|
+  if oc_value.to_s.empty?
+    BigBlueButton.logger.error(" The config key " + oc_key + "is not set. Aborting...")
+    exit 1
+  end
+end
 
-# Removes the raw recording data from BBB if the script sent all the data to Opencast successfully.
-# Set to false if there are other post_archive scripts after this one, or else they will
-# likely fail due to the missing data.
-# Although data will only ever be deleted after the script was successful and the first thing
-# Opencast does (in the bbb-upload Workflow) is to make a snapshot of all the data it got,
-# there may still be edge cases where data loss can occur. If you absolutely cannot accept
-# any data loss, set this option to false.
-# Suggested default: true
-$deleteIfSuccessful = true
+# Set defaults in case they were not configured
+$config = config_defaults.merge($config)
 
-# Marks the raw recording data for deletion by the BBB clean-up cron job.
-# This will have no effect if the cron job is disabled.
-# This will have no effect if "$deleteIfSuccessful" is set to true.
-# Suggested default: false
-$deleteByBBBCron = false
-
-# Send the webcam recording to Opencast.
-# If your Opencast is any version earlier than 9.1, you MUST set this to false.
-# Suggest default: true
-$addWebcamTracks = true
-
-# Adds the shared notes etherpad from a meeting to the attachments in Opencast
-# Suggested default: false
-$sendSharedNotesEtherpadAsAttachment = false
-
-# Adds the public chat from a meeting to the attachments in Opencast as a subtitle file
-# Suggested default: false
-$sendChatAsSubtitleAttachment = false
-
-# Add all uploaded presentations from a meeting to the attachments in Opencast as PDF files.
-# Please make sure to use this feature respectfully.
-# Suggested default: false
-$sendPresentationsAsPdf = false
-
-# Default roles for the event, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
-# Suggested default: ""
-$defaultRolesWithReadPerm = ''
-$defaultRolesWithWritePerm = ''
-
-# Whether a new series should be created if the given one does not exist yet
-# Suggested default: false
-$createNewSeriesIfItDoesNotYetExist = false
-
-# Default roles for the series, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
-# Suggested default: ""
-$defaultSeriesRolesWithReadPerm = ''
-$defaultSeriesRolesWithWritePerm = ''
-
-# The given dublincore identifier will also passed to the dublincore source tag,
-# even if the given identifier cannot be used as the actual identifier for the vent
-# Suggested default: false
-$passIdentifierAsDcSource = false
-
-# Flow control booleans
-# Suggested default: false
-$onlyIngestIfRecordButtonWasPressed = false
-
-# If a converted video already exists, don't overwrite it
-# This can save time when having to run this script on the same input multiple times
-# Suggested default: false
-$doNotConvertVideosAgain = false
-
-# Monitor Opencast workflow state after ingest to determine whether the workflow was successful.
-# WARNING! Will stop processing of further recordings until the Opencast workflow completes. Do not use in production!
-# EXPERIMENTIAL! This may cause the process spawned from this script to run a lot longer than anticipated.
-# Suggested default: false
-$monitorOpencastAfterIngest = false
-# Time between each state check in seconds
-$secondsBetweenChecks = 300
-# Fail-safe. Time in seconds until the process is terminated no matter what.
-$secondsUntilGiveUpMax = 86400
-
-### opencast configuration end
+### Load configuration end
 
 #
 # Parse TimeStamps - Start and End Time
@@ -271,7 +233,7 @@ def checkForTranscode(path, filename)
   pathToFile = File.join(path, filename)
   outputPathToFile = File.join(TMP_PATH, pathToFile)
 
-  if ($doNotConvertVideosAgain && File.exists?(outputPathToFile))
+  if ($config.dig(:miscellaneous, :doNotConvertVideosAgain) && File.exists?(outputPathToFile))
     BigBlueButton.logger.info( "Converted video for #{pathToFile} already exists, skipping...")
     return outputPathToFile
   end
@@ -465,7 +427,7 @@ def monitorOpencastWorkflow(ingestResponse, secondsBetweenChecks, secondsUntilGi
     sleep(secondsBetweenChecks)
 
     # Request check
-    response = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+    response = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                 :get, '/workflow/instance/' + workflowID + '.xml', DEFAULT_REQUEST_TIMEOUT, {},
                 "There has been a problem in OC with the workflow for mediapackage " + mediapackageID + " for BBB recording " + meetingId + ". Aborting..." )
 
@@ -506,14 +468,14 @@ def cleanup(tmp_path, meeting_id)
   FileUtils.rm_rf(tmp_path)
 
   # Inform BBB that the recording was successfully processed
-  if ($deleteByBBBCron)
+  if ($config.dig(:cleanUp, :deleteByBBBCron))
     BigBlueButton.logger.info( "Inform BBB daily cron about the \"successful publish\" of this meeting #{meeting_id}")
     File.open("/var/bigbluebutton/recording/status/published/#{meeting_id}-presentation.done", ["w"]) {|f| f.write("Published #{meeting_id}") }
   end
 
   # Delete all raw recording data
   # TODO: Find a way to outsource this into a script that runs after all post_archive scripts have run successfully
-  if ($deleteIfSuccessful)
+  if ($config.dig(:cleanUp, :deleteIfSuccessful))
     BigBlueButton.logger.info( "Attempting to delete raw recording data for meeting #{meeting_id}")
     system('sudo', 'bbb-record', '--delete', "#{meeting_id}") || raise('Failed to delete local recording')
   end
@@ -620,12 +582,12 @@ webcamStart.each do |share|
 end
 
 # Exit program if the recording was not pressed
-if ($onlyIngestIfRecordButtonWasPressed && recordingStart.length == 0)
+if ($config.dig(:miscellaneous, :onlyIngestIfRecordButtonWasPressed) && recordingStart.length == 0)
   BigBlueButton.logger.info( "Recording Button was not pressed, aborting...")
   cleanup(TMP_PATH, meeting_id)
   exit 0
 # Or instead assume that everything should be recorded
-elsif (!$onlyIngestIfRecordButtonWasPressed && recordingStart.length == 0)
+elsif (!$config.dig(:miscellaneous, :onlyIngestIfRecordButtonWasPressed) && recordingStart.length == 0)
   recordingStart.push(real_start_time)
   recordingStop.push(real_end_time)
 end
@@ -636,7 +598,7 @@ end
 #
 
 # Add webcam tracks
-if ($addWebcamTracks)
+if ($config.dig(:addFiles, :webcamTracks))
   tracks = collectFileInformation(tracks, 'presenter/source', webcamStart, real_start_time)
 end
 # Add audio tracks (Likely to be only one track)
@@ -659,7 +621,7 @@ BigBlueButton.logger.info( tracks)
 
 # Create metadata file dublincore
 dc_data = OcDublincore::parseDcMetadata(meeting_metadata, startTime: real_start_time, stopTime: real_end_time,
-                                        server: $oc_server, user: $oc_user, password: $oc_password)
+  server: $config.dig(:opencast, :server), user: $config.dig(:opencast, :user), password: $config.dig(:opencast, :password))
 dublincore = OcDublincore::createDublincore(dc_data)
 BigBlueButton.logger.info( "Dublincore: \n" + dublincore.to_s)
 
@@ -667,18 +629,20 @@ BigBlueButton.logger.info( "Dublincore: \n" + dublincore.to_s)
 createCuttingMarksJSONAtPath(CUTTING_JSON_PATH, recordingStart, recordingStop, real_start_time, real_end_time)
 
 # Create ACLs at path
-aclData = OcAcl::parseEpisodeAclMetadata(meeting_metadata, $defaultRolesWithReadPerm, $defaultRolesWithWritePerm)
+aclData = OcAcl::parseEpisodeAclMetadata(meeting_metadata, $config.dig(:defaultRoles, :readPerm), $config.dig(:defaultRoles, :writePerm))
 if (!aclData.nil? && !aclData.empty?)
   File.write(ACL_PATH, OcAcl::createAcl(aclData))
 end
 
 # Create series with given seriesId, if such a series does not yet exist
-if ($createNewSeriesIfItDoesNotYetExist)
-  OcAcl::createSeries(meeting_metadata, $oc_server, $oc_user, $oc_password, $defaultSeriesRolesWithReadPerm, $defaultSeriesRolesWithWritePerm)
+if ($config.dig(:miscellaneous, :createNewSeriesIfItDoesNotYetExist))
+  OcAcl::createSeries(meeting_metadata,
+    $config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+    $config.dig(:defaultRoles, :seriesReadPerm), $config.dig(:defaultRoles, :seriesWritePerm))
 end
 
 # Create a subtitles file from chat
-if ($sendChatAsSubtitleAttachment)
+if ($config.dig(:addFiles, :chatAsSubtitleAttachment))
   parseChat(doc, CHAT_PATH, real_start_time, recordingStart, recordingStop)
 end
 
@@ -688,10 +652,10 @@ end
 
 # Create Mediapackage
 if !dc_data[:identifier].to_s.empty?
-  mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                   :put, '/ingest/createMediaPackageWithID/' + dc_data[:identifier], DEFAULT_REQUEST_TIMEOUT,{})
 else
-  mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                   :get, '/ingest/createMediaPackage', DEFAULT_REQUEST_TIMEOUT, {})
 end
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
@@ -701,7 +665,7 @@ mediapackageId = doc.xpath("/*")[0].attr('id')
 # Add Partial Track
 tracks.each do |track|
   BigBlueButton.logger.info( "Track: " + track.to_s)
-  mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                   :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
                   { :flavor => track[:flavor],
                     :startTime => track[:startTime],
@@ -710,13 +674,13 @@ tracks.each do |track|
   BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 end
 # Add dublincore
-mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                 :post, '/ingest/addDCCatalog', DEFAULT_REQUEST_TIMEOUT,
                 {:mediaPackage => mediapackage,
                  :dublinCore => dublincore })
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 # Add cutting marks
-mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                 :post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
                 {:mediaPackage => mediapackage,
                  :flavor => CUTTING_MARKS_FLAVOR,
@@ -724,20 +688,9 @@ mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
                  #:body => File.open(File.join(archived_files, "cutting.json"), 'rb')})
 
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
-# Add ACL
-if (File.file?(ACL_PATH))
-  mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
-                  :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
-                  {:mediaPackage => mediapackage,
-                  :flavor => "security/xacml+episode",
-                  :body => File.open(ACL_PATH, 'rb') })
-  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
-else
-  BigBlueButton.logger.info( "No ACL found, skipping adding ACL.")
-end
 # Add Shared Notes
-if ($sendSharedNotesEtherpadAsAttachment && File.file?(File.join(SHARED_NOTES_PATH, "notes.etherpad")))
-  mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+if ($config.dig(:addFiles, :sharedNotesEtherpadAsAttachment) && File.file?(File.join(SHARED_NOTES_PATH, "notes.etherpad")))
+  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                   :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
                   {:mediaPackage => mediapackage,
                   :flavor => "etherpad/sharednotes",
@@ -747,8 +700,8 @@ else
   BigBlueButton.logger.info( "Adding Shared notes is either disabled or the etherpad was not found, skipping adding Shared Notes Etherpad.")
 end
 # Add Chat as subtitles
-if ($sendChatAsSubtitleAttachment && File.file?(CHAT_PATH))
-  mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+if ($config.dig(:addFiles, :chatAsSubtitleAttachment) && File.file?(CHAT_PATH))
+  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                   :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
                   {:mediaPackage => mediapackage,
                   :flavor => "captions/vtt+en",
@@ -758,12 +711,12 @@ else
   BigBlueButton.logger.info( "Adding Chat as subtitles is either disabled or there was no chat, skipping adding Chat as subtitles.")
 end
 # Add presentations
-if ($sendPresentationsAsPdf)
+if ($config.dig(:addFiles, :presentationsAsPdf))
   presentationNames = presentationSlidesStart.map{|item| item["presentationName"]}.uniq
   presentationNames.each do |presentationName|
     presentationFilePath = File.join(PRESENTATION_PATH, presentationName, presentationName + ".pdf")
     if (File.exists?(presentationFilePath))
-      mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
+      mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                     :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
                     {:mediaPackage => mediapackage,
                     :flavor => "presentation/pdf",
@@ -777,16 +730,30 @@ if ($sendPresentationsAsPdf)
 else
   BigBlueButton.logger.info( "Adding Presentations as PDFs is disabled, skipping adding Presentations as PDFs.")
 end
+# Add ACL
+if (File.file?(ACL_PATH))
+  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+                  :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
+                  {:mediaPackage => mediapackage,
+                  :flavor => "security/xacml+episode",
+                  :body => File.open(ACL_PATH, 'rb') })
+  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+else
+  BigBlueButton.logger.info( "No ACL found, skipping adding ACL.")
+end
 # Ingest and start workflow
-response = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
-                :post, '/ingest/ingest/' + $oc_workflow, START_WORKFLOW_REQUEST_TIMEOUT,
+response = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+                :post, '/ingest/ingest/' + $config.dig(:opencast, :workflow), START_WORKFLOW_REQUEST_TIMEOUT,
                 { :mediaPackage => mediapackage },
                 "LOG ERROR Aborting ingest with BBB id " + meeting_id + "and OC id" + mediapackageId )
 BigBlueButton.logger.info( response)
 
 ### Monitor Opencast
-if $monitorOpencastAfterIngest
-  monitorOpencastWorkflow(response, $secondsBetweenChecks, $secondsUntilGiveUpMax, meeting_id)
+if $config.dig(:monitoring, :monitorOpencastAfterIngest)
+  monitorOpencastWorkflow(response,
+    $config.dig(:monitoring, :secondsBetweenChecks),
+    $config.dig(:monitoring, :secondsUntilGiveUpMax),
+    meeting_id)
 end
 
 ### Exit gracefully
