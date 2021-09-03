@@ -163,6 +163,8 @@ response = OcUtil::requestIngestAPI(oc_server, oc_user, oc_password,
 BigBlueButton.logger.info( "Upload for [#{meeting_id}] ends")
 
 # Remove temporary files
-File.delete(ACL_PATH)
+if (File.file?(ACL_PATH))
+  File.delete(ACL_PATH)
+end
 
 exit 0
