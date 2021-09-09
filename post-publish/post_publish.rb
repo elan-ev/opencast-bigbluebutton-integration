@@ -82,6 +82,11 @@ ACL_PATH = File.join(published_files, "acl.xml")
 
 BigBlueButton.logger.info( "Prepare Metadata for [#{meeting_id}]...")
 
+# Check parameters sent via metadata
+if meeting_metadata["opencast-add-webcams"].nil?
+  meeting_metadata["opencast-add-webcams"] = 'true'
+end
+
 # Create metadata file dublincore
 dc_data = OcDublincore::parseDcMetadata(meeting_metadata, server: oc_server, user: oc_user, password: oc_password)
 dublincoreXML = OcDublincore::createDublincore(dc_data)
@@ -120,7 +125,7 @@ doc = Nokogiri::XML(mediapackage)
 mediapackageId = doc.xpath("/*")[0].attr('id')
 
 # Add Track
-if (File.exists?(published_files + '/video/webcams.webm'))
+if (File.exists?(published_files + '/video/webcams.webm') && meeting_metadata["opencast-add-webcams"] == 'true')
   BigBlueButton.logger.info( "Found presenter video")
   mediapackage = OcUtil::requestIngestAPI(oc_server, oc_user, oc_password,
                   :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
