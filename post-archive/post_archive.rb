@@ -603,7 +603,7 @@ if meeting_metadata["opencast-add-webcams"].nil?
     tracks = collectFileInformation(tracks, 'presenter/source', webcamStart, real_start_time)
   end
 else
-  if ($config.dig(:addFiles, :webcamTracks) && meeting_metadata["opencast-add-webcams"] == 'true')
+  if ($config.dig(:addFiles, :webcamTracks) && meeting_metadata["opencast-add-webcams"].to_s == 'true')
     tracks = collectFileInformation(tracks, 'presenter/source', webcamStart, real_start_time)
   end
 end
