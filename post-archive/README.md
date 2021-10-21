@@ -111,6 +111,11 @@ Troubleshooting
 		- The opencast server likely ran out of working memory. Implement the steps described in "Limitations & Take Cares" and then try again.
 	- Failed with "VideoGridServiceException: No response from service"
 		 - The recording likely contains too many webcam videos. This is a current limitation in the Opencast workflow. Try again with significantly less webcam videos.
+	 - Failed with "The audio [..] could not be encoded by the encoding profile 'editor.work' with the properties 'EMPTY'."
+	 	- With corresponding error message "FFMPEG: Too many packets buffered for output stream 0:1" in the Opencast logs on the worker node.
+	 	- A solution to this error is currently unknown.
+	 	- A suggested solution to this issue is to add the flag `-max_muxing_queue_size 1024` to the relevant encoding profile, but this causes the audio to get lost and is thus not recommendend.
+
 4. The BBB logs contain "504 Request Timeout" errors
 	- Check if the recording arrived at Opencast or not. Sometimes Opencast will respond with an error even though there was none. This is a bug in Opencast.
 	- The timeout is due to Opencast processing time. Opencast inspects every media file before sending out a response. While this process has become dramatically faster since Opencast 8.10, it may still take longer than your (reverse) proxy timeout. In that case, you can try increasing your (reverse) proxy timeout to circumvent this problem.
