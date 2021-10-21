@@ -62,6 +62,8 @@ Setup Opencast
   - When using Opencast 9.1: Use `bbb-upload-9.xml` instead of `bbb-upload.xml` to also enable webcams. Make sure to only have one of them in your Workflow directory.
   - When using Opencast 9.2 (or higher): Use `bbb-upload-9-2.xml` instead of `bbb-upload.xml` to also enable automatic cutting. Make sure to only have one of them in your Workflow directory.
   - When using Opencast 9.3 (or higher): Use `bbb-upload-9-3.xml` instead of `bbb-upload.xml` to enable the above and increase processing speed. Make sure to only have one of them in your Workflow directory.
+  - When using Opencast 10.4 (or higher): Use `bbb-upload-10-4.xml` instead of `bbb-upload.xml` to enable the above and reduce memory consumption for concat operations. Make sure to only have one of them in your Workflow directory.
+
 - Add the file `bbb-publish-after-cutting.xml`. This will add a new Publish option to the VideoEditor, which needs to be used when cutting videos after they have been uploaded from BBB.
 - In the Admin-UI, create the user you entered in the post_archive.rb during "Setup BBB"
 - When using Opencast 8.6 or lower: Apply a fix in the file `/etc/encoding/opencast-images.properties` by assigning the variable `profile.import.image-frame.ffmpeg.command` the value `-sseof -3 -i #{in.video.path} -update 1 -q:v 1 #{out.dir}/#{out.name}#{out.suffix}`.
