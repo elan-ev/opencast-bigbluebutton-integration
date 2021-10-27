@@ -3,6 +3,7 @@ require 'rest-client'     #Easier HTTP Requests
 require 'nokogiri'        #XML-Parser
 require 'fileutils'       #Directory Creation
 require 'streamio-ffmpeg' #Accessing video information
+require 'Socket'          #Debugging hostname
 require File.expand_path('../../../lib/recordandplayback', __FILE__)  # BBB Utilities
 
 require_relative 'oc_modules/oc_dublincore'
@@ -53,6 +54,9 @@ $sendSharedNotesEtherpadAsAttachment = false
 # Adds the public chat from a meeting to the attachments in Opencast as a subtitle file
 # Suggested default: false
 $sendChatAsSubtitleAttachment = false
+
+# Adds a debug file to the assets/attachements of a media package in Opencast
+$sendDebugAttachment = false
 
 # Add all uploaded presentations from a meeting to the attachments in Opencast as PDF files.
 # Please make sure to use this feature respectfully.
@@ -346,6 +350,21 @@ def collectFileInformation(tracks, flavor, startTimes, real_start_time)
   return tracks
 end
 
+# Write debugging information to JSON file at path
+#
+# path: Location to save JSON to, string
+# debugEntries: Hash of entries
+# 
+# return: null
+def createDebugJSONAtPath(path, debugEntries)
+  debugEntries.store("hostname", Socket.gethostname)
+  debugEntries.store("meeting_id", meeting_id)
+  debugEntries.store("workflow_on_ingest", oc_workflow)
+  debugEntries.store("post_archive_VIDEO_PATH", VIDEO_PATH)
+  debugEntries.store("post_archive_AUDIO_PATH", AUDIO_PATH)
+  File.write(path, JSON.pretty_generate(debugEntries))
+end
+
 #
 # Creates a JSON for sending cutting marks
 #
@@ -551,6 +570,7 @@ recordingStart = []           # Array of timestamps
 recordingStop = []            # Array of timestamps
 presentationSlidesStart = []  # Array of hashes[filename, timestamp, presentationName]
 tracks = []                   # Array of hashes[flavor, starttime, path]
+debugEntries = []             # Hashmap of key-value pairs for tracing archived bbb videos
 
 # Constants
 DEFAULT_REQUEST_TIMEOUT = 10                                  # Http request timeout in seconds
@@ -566,6 +586,7 @@ TMP_PATH = File.join(archived_files, 'upload_tmp')             # Where temporary
 CUTTING_JSON_PATH = File.join(TMP_PATH, "cutting.json")
 CHAT_PATH = File.join(TMP_PATH, "chat.vtt")
 ACL_PATH = File.join(TMP_PATH, "acl.xml")
+DEBUG_PATH = File.join(TMP_PATH, "debug.json")
 
 # Create local tmp directory
 unless File.directory?(TMP_PATH)
@@ -682,6 +703,11 @@ if ($sendChatAsSubtitleAttachment)
   parseChat(doc, CHAT_PATH, real_start_time, recordingStart, recordingStop)
 end
 
+# Create debug entries file from debugEntries
+if ($sendDebugAttachment)
+  createDebugJSONAtPath(DEBUG_PATH, debugEntries)
+end
+
 #
 # Create a mediapackage and ingest it
 #
@@ -776,6 +802,20 @@ if ($sendPresentationsAsPdf)
   BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 else
   BigBlueButton.logger.info( "Adding Presentations as PDFs is disabled, skipping adding Presentations as PDFs.")
+end
+# Add debugging information
+if ($sendDebugAttachment)
+  if (File.file?(DEBUG_PATH))
+    BigBlueButton.logger.info("Adding debugging information as attachment asset to MP::" + mediapackage)
+    mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password, 
+                   :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT, 
+                   {:mediaPackage => mediapackage, 
+                   :flavor => "json/debug", 
+                   :body => File.open(DEBUG_PATH, 'rb') })
+  else
+    BigBlueButton.logger.info("Skipping sending debugging information to MP::" + mediapackage +  " because the file was not found.")
+  end
+  BigBlueButton.logger.info("Skipping sending debugging information to MP::" + mediapackage + " because sendDebugAttachment is disabled.")
 end
 # Ingest and start workflow
 response = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password,
