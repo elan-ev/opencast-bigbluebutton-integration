@@ -17,7 +17,7 @@ Requirements
 --------
 - Opencast 8.4 (or later)
 - BigBlueButton 2.2 (or later)
-	- Ruby gems: rest-client, fileutils, streamio-ffmpeg
+	- Ruby gems: rest-client, fileutils, streamio-ffmpeg, toml-rb
   - Command line tools: rsvg-convert
 
 Files:
@@ -33,15 +33,17 @@ Setup BBB
 - Place the script `post_archive.rb` in
     
     `/usr/local/bigbluebutton/core/scripts/post_archive/`
+
+    Place the configuration file `post_archive_config.toml` in the same location.
     
-    Place the folder `oc_modules` from the top-level of this repository in the same location. 
+    Place the folder `oc_modules` from the top-level of this repository in the same location.
     
     `/usr/local/bigbluebutton/core/scripts/post_archive/oc_modules`
-- In the script `post_archive.rb`, change the global variables in the "opencast configuration":
-	- In `post_archive.rb`, change the variable `$oc_server` to point to your Opencast installation
-	- Also change `$oc_user` and `oc_password` to a user of your opencast installation that is allowed to ingest (e.g. ROLE_ADMIN)
+- In the config `post_archive_config.toml`, change the variables in the "opencast" group:
+	- Change the variable `server` to point to your Opencast installation
+	- Also change `user` and `password` to a user of your opencast installation that is allowed to ingest (e.g. ROLE_ADMIN)
 		- Alternatively, you can use ROLE_CAPTURE_AGENT for more restricted access rights
-	- When using with any Opencast version earlier than 9.1: Set `$addWebcamTracks` to `false`.
+	- When using with any Opencast version earlier than 9.1: In the group `addFiles`, set `webcamTracks` to `false`.
 	- Change the remaining options how you like.
 
 - Disable the process and publish steps by calling: `sudo bbb-record --disable presentation`
@@ -59,6 +61,8 @@ Setup Opencast
 - In your Opencast installation, add the file `bbb-upload.xml` to the workflow folder (Likely located at `etc/workflows` or `etc/opencast/workflows`)
   - When using Opencast 9.1: Use `bbb-upload-9.xml` instead of `bbb-upload.xml` to also enable webcams. Make sure to only have one of them in your Workflow directory.
   - When using Opencast 9.2 (or higher): Use `bbb-upload-9-2.xml` instead of `bbb-upload.xml` to also enable automatic cutting. Make sure to only have one of them in your Workflow directory.
+  - When using Opencast 9.3 (or higher): Use `bbb-upload-9-3.xml` instead of `bbb-upload.xml` to enable the above and increase processing speed. Make sure to only have one of them in your Workflow directory.
+  - When using Opencast 10.4 (or higher): Use `bbb-upload-10-4.xml` instead of `bbb-upload.xml` to enable the above and reduce memory consumption for concat operations. Make sure to only have one of them in your Workflow directory.
 - Add the file `bbb-publish-after-cutting.xml`. This will add a new Publish option to the VideoEditor, which needs to be used when cutting videos after they have been uploaded from BBB.
 - In the Admin-UI, create the user you entered in the post_archive.rb during "Setup BBB"
 - When using Opencast 8.6 or lower: Apply a fix in the file `/etc/encoding/opencast-images.properties` by assigning the variable `profile.import.image-frame.ffmpeg.command` the value `-sseof -3 -i #{in.video.path} -update 1 -q:v 1 #{out.dir}/#{out.name}#{out.suffix}`.
@@ -108,6 +112,11 @@ Troubleshooting
 		- The opencast server likely ran out of working memory. Implement the steps described in "Limitations & Take Cares" and then try again.
 	- Failed with "VideoGridServiceException: No response from service"
 		 - The recording likely contains too many webcam videos. This is a current limitation in the Opencast workflow. Try again with significantly less webcam videos.
+	 - Failed with "The audio [..] could not be encoded by the encoding profile 'editor.work' with the properties 'EMPTY'."
+	 	- With corresponding error message "FFMPEG: Too many packets buffered for output stream 0:1" in the Opencast logs on the worker node.
+	 	- A solution to this error is currently unknown.
+	 	- A suggested solution to this issue is to add the flag `-max_muxing_queue_size 1024` to the relevant encoding profile, but this causes the audio to get lost and is thus not recommendend.
+
 4. The BBB logs contain "504 Request Timeout" errors
 	- Check if the recording arrived at Opencast or not. Sometimes Opencast will respond with an error even though there was none. This is a bug in Opencast.
 	- The timeout is due to Opencast processing time. Opencast inspects every media file before sending out a response. While this process has become dramatically faster since Opencast 8.10, it may still take longer than your (reverse) proxy timeout. In that case, you can try increasing your (reverse) proxy timeout to circumvent this problem.
