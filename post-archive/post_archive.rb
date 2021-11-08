@@ -3,7 +3,7 @@ require 'rest-client'     #Easier HTTP Requests
 require 'nokogiri'        #XML-Parser
 require 'fileutils'       #Directory Creation
 require 'streamio-ffmpeg' #Accessing video information
-require 'Socket'          #Debugging hostname
+require 'socket'          #Debugging hostname
 require 'toml-rb'         #Parse values from config file
 require File.expand_path('../../../lib/recordandplayback', __FILE__)  # BBB Utilities
 
