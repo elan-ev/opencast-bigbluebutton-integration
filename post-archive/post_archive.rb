@@ -769,6 +769,7 @@ else
 end
 # Add debugging information
 if ($config.dig(:addFiles, :sendDebugAttachment))
+  createDebugJSONAtPath(DEBUG_PATH, debugEntries)
   if (File.file?(DEBUG_PATH))
     BigBlueButton.logger.info("Adding debugging information as attachment asset to MP::" + mediapackage)
     mediapackage = OcUtil::requestIngestAPI($oc_server, $oc_user, $oc_password, 
