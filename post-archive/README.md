@@ -1,43 +1,48 @@
 Post-Archive Integration
 ========================
 
-**There is a known bug where the final video in Opencast will be too short due to missing parts of the recording. A
-  workaround is currently not available for Opencast 8!!!, but will be available with Opencast 9.**
-- If you wish to have the workaround available in Opencast 8, you will have to backport [Opencast Pull Request #1898](https://github.com/opencast/opencast/pull/1898)
-    - You will also have to uncomment two lines in the `bbb-upload.xml`
-    
 The Idea
 --------
 
-We want to record BigBlueButton meetings.  
-But we don't want process and publish them through BBB, but with Opencast.  
-So we send all the raw recording data from BBB to Opencast and process them with an Opencast workflow.  
+- Let Opencast process the recordings instead of BBB
+- So send all the raw recording data from BBB to Opencast and process them with an Opencast workflow
+- Transferred media includes:
+  - Combined video of all webcams
+  - Video of Screen recording
+  - Combined audio
 
 Requirements
 --------
-- Opencast 8.4 (or later)
-- BigBlueButton 2.2 (or later)
-	- Ruby gems: rest-client, fileutils, streamio-ffmpeg, toml-rb, optimist
-  - Command line tools: rsvg-convert
 
-Files:
---------
-post_archive.rb: A ruby script that handles sending data from BBB to Opencast.  
-bbb-upload.xml: An Opencast workflow for processing BBB data.  
-bbb-publish-after-cutting.xml: An Opencast workflow for publish an even that was processed with bbb-upload.xml in the VideoEditor.
+- Opencast 9.1 (or later)
+- BigBlueButton 2.3 and 2.4
+  - Ruby gems: `rest-client`, `fileutils`, `streamio-ffmpeg`, `toml-rb`
+  - Packages: `librsvg2-bin`
+- BigBlueButton 2.5
+  - Ruby gems: `rest-client`, `streamio-ffmpeg`, `toml-rb`
+  - Packages: `librsvg2-bin`, `ruby-dev`
+  - Note: you need to unset the deployment environment before running `bundle install`, using `bundle config unset deployment`
 
-Setup BBB
+Files
 --------
+
+* `post_archive.rb`: A ruby script that handles sending data from BBB to Opencast.
+* `bbb-upload.xml`: An Opencast workflow for processing BBB data.
+* `bbb-publish-after-cutting.xml`: An Opencast workflow for publish an event that was processed with `bbb-upload.xml` in the VideoEditor.
+
+Set Up BigBlueButton
+--------
+
 - If the required ruby gems are not yet installed, manually install the ruby gems mentioned under requirements via `gem install *name*`. They are used by the post_archive.rb script.
 - Install the command line tool rsvg-convert: `sudo apt-get install librsvg2-bin`
 - Place the script `post_archive.rb` in
-    
+
     `/usr/local/bigbluebutton/core/scripts/post_archive/`
 
     Place the configuration file `post_archive_config.toml` in the same location.
-    
+
     Place the folder `oc_modules` from the top-level of this repository in the same location.
-    
+
     `/usr/local/bigbluebutton/core/scripts/post_archive/oc_modules`
 - In the config `post_archive_config.toml`, change the variables in the "opencast" group:
 	- Change the variable `server` to point to your Opencast installation
@@ -56,8 +61,9 @@ Setup BBB
   To ensure that does not happen, you can use `apply-config.sh` bash script offered by BBB (Details at: https://docs.bigbluebutton.org/2.2/customize.html#apply-confsh)
 - Allow post scripts to call the `bbb-record` utility by adding the line `bigbluebutton ALL = NOPASSWD: /usr/bin/bbb-record` to `/etc/sudoers`
 
-Setup Opencast
+Set Up Opencast
 --------
+
 - In your Opencast installation, add the file `bbb-upload.xml` to the workflow folder (Likely located at `etc/workflows` or `etc/opencast/workflows`)
   - When using Opencast 9.1: Use `bbb-upload-9.xml` instead of `bbb-upload.xml` to also enable webcams. Make sure to only have one of them in your Workflow directory.
   - When using Opencast 9.2 (or higher): Use `bbb-upload-9-2.xml` instead of `bbb-upload.xml` to also enable automatic cutting. Make sure to only have one of them in your Workflow directory.
@@ -71,6 +77,7 @@ Setup Opencast
 
 Limitations & Take Cares
 --------
+
 - Currently, only audio, deskshare and raw slides (no marks) are transmitted.
     - **When using Opencast 9.1** or higher, webcams can be enabled. This will generate a single video file from all the webcam recordings. Details can be found in the setup instructions.
       - The webcam operation in Opencast CAN FAIL for a large number of webcams. Anything beyond 30 simultaneous webcams may lead to a workflow error.
@@ -80,11 +87,11 @@ Limitations & Take Cares
 - After successfully transmitting the recording to Opencast, all data related to the recording on the BBB installation WILL BE DELETED! While Opencast will immediately make a snapshot upon receiving the recording data, IN CASE OF AN ERROR THIS CAN LEAD TO LOST DATA!
 	- If you don't want that, set the variable `$deleteIfSuccessful` to `false`.
 - The recording is published with a few default metadata values. To set further metadata, the frontend which creates the
-  BBB-Meeting will need pass them when calling the `/create` API, so that BBB then may pass them on to Opencast. 
+  BBB-Meeting will need pass them when calling the `/create` API, so that BBB then may pass them on to Opencast.
   An overview over the possible metadata can be found [here](https://github.com/elan-ev/opencast-bigbluebutton-integration).
-- The time between the end of a BBB Meeting and the recording appearing in Opencast depends largely on the number of 
-  files generated. A simple test meeting should take something between 30-60 seconds. 
-	- In certain edge cases (video recordings with uneven resolutions), there may still be some preprocessing necessary 
+- The time between the end of a BBB Meeting and the recording appearing in Opencast depends largely on the number of
+  files generated. A simple test meeting should take something between 30-60 seconds.
+	- In certain edge cases (video recordings with uneven resolutions), there may still be some preprocessing necessary
 	  on BBB side, greatly increasing the time until the recording appears in Opencast.
 - The BBB-Upload workflow for Opencast relies on the partial workflows `partial-preview.xml` and `partial-publish.xml`
   from the official Opencast installation. If these partial workflows are changed in your installation, you will need
@@ -97,6 +104,7 @@ Limitations & Take Cares
 
 Troubleshooting
 --------
+
 1. General actions to take
 	- Check the logs
 		- `/var/log/bigbluebutton/bbb-rap-worker.log`, for potential exceptions
@@ -117,9 +125,7 @@ Troubleshooting
 	 	- With corresponding error message "FFMPEG: Too many packets buffered for output stream 0:1" in the Opencast logs on the worker node.
 	 	- A solution to this error is currently unknown.
 	 	- A suggested solution to this issue is to add the flag `-max_muxing_queue_size 1024` to the relevant encoding profile, but this causes the audio to get lost and is thus not recommendend.
-
-4. The BBB logs contain "504 Request Timeout" errors
+3. The BBB logs contain "504 Request Timeout" errors
 	- Check if the recording arrived at Opencast or not. Sometimes Opencast will respond with an error even though there was none. This is a bug in Opencast.
 	- The timeout is due to Opencast processing time. Opencast inspects every media file before sending out a response. While this process has become dramatically faster since Opencast 8.10, it may still take longer than your (reverse) proxy timeout. In that case, you can try increasing your (reverse) proxy timeout to circumvent this problem.
 	- There is an actual network problem that prevents clean communication between BBB and Opencast.
-

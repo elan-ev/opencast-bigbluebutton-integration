@@ -12,20 +12,14 @@ The Idea
     - Combined video of all webcams
     - Video of Screen recording
     - Combined audio
-    
+
 Requirements
 ------------
 
-- The Ruby gem 'rest-client' is used to send requests to Opencast. If it is not yet installed, manually install it
-  via `gem install *name*`.
-  
-```bash
-gem install rest-client
-gem install optimist
-```
+- The Ruby gem `rest-client` is used to send requests to Opencast.
+If it is not yet installed, manually install it via `gem install rest-client`.
 
-
-The Integration Script
+Set Up BigBlueButton
 ----------------------
 
 What we want to add in BigBlueButton is a post processing script as [described in the documentation](https://docs.bigbluebutton.org/dev/recording.html#writing-post-scripts).
