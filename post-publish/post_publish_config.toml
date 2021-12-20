@@ -1,0 +1,38 @@
+### opencast configuration begin
+
+# Variables for accessing Opencast
+# Make sure change these to your Opencast installation
+[opencast]
+# Server URL
+# Example: server = 'https://develop.opencast.org'
+server = 'http://localhost:8080'
+
+# User credentials allowed to ingest via HTTP basic
+# Example: user = 'username'
+# Example: password = 'password'
+user = 'admin'
+password = 'opencast'
+
+# Workflow to use for ingest
+# Example: workflow = 'bbb-upload'
+workflow = 'schedule-and-upload'
+
+
+# Allows you to add default Opencast roles to every recording
+[defaultRoles]
+# Default roles for the event, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
+# Default: ""
+readPerm = ""
+writePerm = ""
+
+# Default roles for the series, e.g. "ROLE_OAUTH_USER, ROLE_USER_BOB"
+# Default: ""
+seriesReadPerm = ""
+seriesWritePerm = ""
+
+
+# Various other options
+[miscellaneous]
+# Whether a new series should be created if the given one does not exist yet
+# Default: false
+createNewSeriesIfItDoesNotYetExist = true
