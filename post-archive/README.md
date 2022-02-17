@@ -17,7 +17,7 @@ Requirements
 --------
 - Opencast 8.4 (or later)
 - BigBlueButton 2.2 (or later)
-	- Ruby gems: rest-client, fileutils, streamio-ffmpeg, toml-rb
+	- Ruby gems: rest-client, fileutils, streamio-ffmpeg, toml-rb, optimist
   - Command line tools: rsvg-convert
 
 Files:
