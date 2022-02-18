@@ -470,7 +470,7 @@ def cleanup(tmp_path, meeting_id)
   # Inform BBB that the recording was successfully processed
   if ($config.dig(:cleanUp, :deleteByBBBCron))
     BigBlueButton.logger.info( "Inform BBB daily cron about the \"successful publish\" of this meeting #{meeting_id}")
-    File.open("/var/bigbluebutton/recording/status/published/#{meeting_id}-presentation.done", ["w"]) {|f| f.write("Published #{meeting_id}") }
+    File.open("/var/bigbluebutton/recording/status/published/#{meeting_id}-presentation.done", 'w') {|f| f.write("Published #{meeting_id}") }
   end
 
   # Delete all raw recording data
