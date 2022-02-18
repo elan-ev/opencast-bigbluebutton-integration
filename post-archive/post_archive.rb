@@ -1,4 +1,4 @@
-require 'trollop'         #Commandline Parser
+require 'optimist'         #Commandline Parser
 require 'rest-client'     #Easier HTTP Requests
 require 'nokogiri'        #XML-Parser
 require 'fileutils'       #Directory Creation
@@ -490,8 +490,9 @@ end
 #
 # Parse cmd args from BBB and initialize logger
 
-opts = Trollop::options do
+opts = Optimist::options do
   opt :meeting_id, "Meeting id to archive", :type => String
+  opt :file_type, "File type", :type => String
 end
 meeting_id = opts[:meeting_id]
 

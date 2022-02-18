@@ -21,7 +21,7 @@
 #
 
 require "shellwords"
-require "trollop"
+require "optimist"
 require 'nokogiri'        #XML-Parser
 require File.expand_path('../../../lib/recordandplayback', __FILE__)
 
@@ -63,8 +63,9 @@ defaultSeriesRolesWithWritePerm = ""
 #
 # Parse cmd args from BBB and initialize logger
 
-opts = Trollop::options do
+opts = Optimist::options do
  opt :meeting_id, "Meeting id to archive", :type => String
+ opt :file_type, "File type", :type => String
 end
 meeting_id = opts[:meeting_id]
 

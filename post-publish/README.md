@@ -18,6 +18,11 @@ Requirements
 
 - The Ruby gem 'rest-client' is used to send requests to Opencast. If it is not yet installed, manually install it
   via `gem install *name*`.
+  
+```bash
+gem install rest-client
+gem install optimist
+```
 
 
 The Integration Script
