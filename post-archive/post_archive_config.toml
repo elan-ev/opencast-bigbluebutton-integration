@@ -29,6 +29,14 @@ webcamTracks = true
 # Default: false
 sharedNotesEtherpadAsAttachment = false
 
+# Adds the shared notes as HTML from a meeting to the attachments in Opencast
+# Default: false
+sharedNotesHmtlAsAttachment = false
+
+# Adds the shared notes as PDF from a meeting to the attachments in Opencast
+# Default: false
+sharedNotesPdfAsAttachment = false
+
 # Adds the public chat from a meeting to the attachments in Opencast as a subtitle file
 # Default: false
 chatAsSubtitleAttachment = false
