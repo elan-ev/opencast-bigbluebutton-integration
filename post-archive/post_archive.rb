@@ -32,7 +32,7 @@ config_defaults = {
   },
   miscellaneous: {
     createNewSeriesIfItDoesNotYetExist: false,
-    skipProcessingIfNoSeriesIdSet: true,
+    skipProcessingIfNoSeriesIdSet: false,
     passIdentifierAsDcSource: false,
     onlyIngestIfRecordButtonWasPressed: false,
     doNotConvertVideosAgain: false,
@@ -221,7 +221,7 @@ end
 #
 # Checks if the video requires transcoding before sending it to Opencast
 # * Checks if a video has a width and height that is divisible by 2
-#   If not, crops the video to have one 
+#   If not, crops the video to have one
 # * Checks if the video is missing duration metadata
 #   If it's missing, copies the video to add it
 #
