@@ -85,6 +85,10 @@ seriesWritePerm = ""
 # Default: false
 createNewSeriesIfItDoesNotYetExist = false
 
+# Whether to skip processing if no series ID was submitted as meeting metadata
+# Default: true
+skipProcessingIfNoSeriesIdSet = false
+
 # The given dublincore identifier will also passed to the dublincore source tag,
 # even if the given identifier cannot be used as the actual identifier for the vent
 # Default: false
