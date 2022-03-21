@@ -220,7 +220,7 @@ end
 #
 # Checks if the video requires transcoding before sending it to Opencast
 # * Checks if a video has a width and height that is divisible by 2
-#   If not, crops the video to have one 
+#   If not, crops the video to have one
 # * Checks if the video is missing duration metadata
 #   If it's missing, copies the video to add it
 #
@@ -707,6 +707,25 @@ if ($config.dig(:addFiles, :sharedNotesEtherpadAsAttachment) && File.file?(File.
 else
   BigBlueButton.logger.info( "Adding Shared notes is either disabled or the etherpad was not found, skipping adding Shared Notes Etherpad.")
 end
+if ($config.dig(:addFiles, :sharedNotesHmtlAsAttachment) && File.file?(File.join(SHARED_NOTES_PATH, "notes.html")))
+  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+                  :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
+                  {:mediaPackage => mediapackage,
+                  :flavor => "html/sharednotes",
+                  :body => File.open(File.join(SHARED_NOTES_PATH, "notes.html"), 'rb') })
+else
+  BigBlueButton.logger.info( "No HTML source for shared notes found or disabled.")
+end
+if ($config.dig(:addFiles, :sharedNotesPdfAsAttachment) && File.file?(File.join(SHARED_NOTES_PATH, "notes.pdf")))
+  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+                  :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
+                  {:mediaPackage => mediapackage,
+                  :flavor => "pdf/sharednotes",
+                  :body => File.open(File.join(SHARED_NOTES_PATH, "notes.pdf"), 'rb') })
+else
+  BigBlueButton.logger.info( "No PDF source for shared notes found or disabled.")
+end
+
 # Add Chat as subtitles
 if ($config.dig(:addFiles, :chatAsSubtitleAttachment) && File.file?(CHAT_PATH))
   mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
