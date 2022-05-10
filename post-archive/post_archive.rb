@@ -571,6 +571,12 @@ end
 
 # Get conference start and end timestamps in ms
 real_start_time, real_end_time = getRealStartEndTimes(doc)
+# Exit program if the recording was too short
+if (real_end_time - real_start_time) < ($config.dig(:miscellaneous, :minimalDuration) * 1000)
+  BigBlueButton.logger.info( "Recording too short, aborting...")
+  cleanup(TMP_PATH, meeting_id)
+  exit 0
+end
 # Get screen share start timestamps
 deskshareStart = parseTimeStamps(doc, 'StartWebRTCDesktopShareEvent', deskshareStart, DESKSHARE_PATH)
 # Get webcam share start timestamps
