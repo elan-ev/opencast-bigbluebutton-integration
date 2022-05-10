@@ -102,6 +102,11 @@ onlyIngestIfRecordButtonWasPressed = false
 # Default: false
 doNotConvertVideosAgain = false
 
+# Minimal accepted duration of recordings in seconds
+# This value can be used to discard recordings that are shorter than this value.
+# This can be helpful when dealing with a lot of short videos due to people peeking into
+# conferences before they start and that have set 'autoStartRecording' to 'true'.
+minimalDuration = 0
 
 # Monitor Opencast workflow state after ingest to determine whether the workflow was successful.
 # EXPERIMENTIAL! This may cause the process spawned from this script to run a lot longer than anticipated.
