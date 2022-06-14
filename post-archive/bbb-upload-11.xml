@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<definition xmlns="http://workflow.opencastproject.org">
+
+  <id>bbb-upload</id>
+  <title>BigBlueButton Upload</title>
+  <tags>
+    <tag>archive</tag>
+  </tags>
+  <displayOrder>1000</displayOrder>
+  <description>
+    Handles processing of raw recording data from BigBlueButton
+  </description>
+
+  <configuration_panel>
+    <![CDATA[
+      <div id="workflow-configuration">
+        <input id="publish" name="publish" type="checkbox" class="configField" value="true" checked=checked />
+        <label for="publish">Publish media directly</label>
+      </div>
+    ]]>
+  </configuration_panel>
+
+  <operations>
+
+    <!-- Apply the default workflow configuration -->
+
+    <operation
+        id="defaults"
+        description="Applying default configuration values">
+      <configurations>
+        <configuration key="flagForCutting">false</configuration>
+        <configuration key="flagForReview">false</configuration>
+        <configuration key="flagQuality360p">false</configuration>
+        <configuration key="flagQuality480p">false</configuration>
+        <configuration key="flagQuality720p">true</configuration>
+        <configuration key="flagQuality1080p">true</configuration>
+        <configuration key="flagQuality2160p">false</configuration>
+        <configuration key="publishToEngage">true</configuration>
+        <configuration key="thumbnailType">0</configuration>
+        <configuration key="thumbnailPosition">1</configuration>
+        <!-- WEIL INNSBRUCK -->
+        <configuration key="flagQuality1280x720p">true</configuration>
+        <configuration key="flagQuality1920x1080p">true</configuration>
+      </configurations>
+    </operation>
+
+    <!-- Apply ACL from series to the mediapackage -->
+
+    <operation
+        id="series"
+        fail-on-error="true"
+        exception-handler-workflow="partial-error"
+        description="Applying access control entries from series">
+      <configurations>
+        <configuration key="apply-acl">true</configuration>
+        <configuration key="attach">*</configuration>
+      </configurations>
+    </operation>
+
+    <!--- Tag captions for publish to engage -->
+
+    <operation
+        id="tag"
+        max-attempts="2"
+        fail-on-error="true"
+        exception-handler-workflow="partial-error"
+        description="Tagging captions for publishing to engage">
+      <configurations>
+        <configuration key="source-flavors">captions/*</configuration>
+        <configuration key="target-tags">+engage-download</configuration>
+        <configuration key="copy">false</configuration>
+      </configurations>
+    </operation>
+
+    <!-- Save source in case of errors -->
+
+    <operation
+        id="tag"
+        description="Tagging source material for archival">
+      <configurations>
+        <configuration key="source-flavors">*/*</configuration>
+        <configuration key="target-tags">+archive</configuration>
+      </configurations>
+    </operation>
+
+    <operation
+        id="snapshot"
+        fail-on-error="true"
+        exception-handler-workflow="partial-error"
+        description="Archiving">
+      <configurations>
+        <configuration key="source-tags">archive</configuration>
+      </configurations>
+    </operation>
+
+    <!-- Combine files from BBB -->
+
+    <operation
+        id="videogrid"
+        description="Create a single video grid from the webcam streams"
+        fail-on-error="true"
+        exception-handler-workflow="partial-error">
+      <configurations>
+        <configuration key="source-flavor">presenter/source</configuration>
+        <configuration key="source-flavors">presenter/source</configuration>
+        <configuration key="source-smil-flavor">smil/source+partial</configuration>
+        <configuration key="concat-encoding-profile">concat-samecodec.work</configuration>
+        <configuration key="target-flavor">presenter/withoutAudio</configuration>
+      </configurations>
+    </operation>
+
+    <!-- Used before partial-import as recommended by the docs-->
+    <operation
+        id="inspect"
+        fail-on-error="true"
+        exception-handler-workflow="partial-error"
+        description="Inspecting mediapackage track elements">
+      <configurations>
+        <configuration key="overwrite">false</configuration>
+        <configuration key="accept-no-media">false</configuration>
+        <configuration key="accurate-frame-count">true</configuration>
+      </configurations>
+    </operation>
+
+    <operation id="partial-import"
+               description="Post-processing raw audio and video files from capture agent"
+               fail-on-error="true"
+               exception-handler-workflow="partial-error">
+      <configurations>
+        <configuration key="source-presentation-flavor">presentation/source</configuration>
+        <configuration key="source-smil-flavor">smil/source+partial</configuration>
+        <configuration key="target-presentation-flavor">presentation/unified</configuration>
+        <configuration key="target-presenter-flavor">presenter/IntoTheGarbage</configuration>
+        <configuration key="preencode-encoding-profile">partial-import-preencode</configuration>
+        <configuration key="concat-encoding-profile">concat.work</configuration>
+        <configuration key="trim-encoding-profile">trim.work</configuration>
+        <configuration key="force-encoding-profile">encode.partial-import</configuration>
+      </configurations>
+    </operation>
+
+    <!-- Add audio to presenter -->
+    <operation
+        id="prepare-av"
+        fail-on-error="true"
+        exception-handler-workflow="partial-error"
+        description="Preparing presenter audio and video work versions">
+      <configurations>
+        <configuration key="source-flavor">presenter/withoutAudio</configuration>
+        <configuration key="target-flavor">presenter/unified</configuration>
+        <configuration key="rewrite">false</configuration>
+        <configuration key="audio-muxing-source-flavors">presentation/unified</configuration>
+      </configurations>
+    </operation>
+
+    <!-- CUT -->
+    <operation
+        id="cut-marks-to-smil"
+        description="Create a smil that can be used by the video editor from the ingested json"
+        fail-on-error="true"
+        exception-handler-workflow="partial-error">
+      <configurations>
+        <configuration key="source-media-flavors">presenter/unified,presentation/unified</configuration>
+        <configuration key="source-json-flavor">json/times</configuration>
+        <configuration key="target-smil-flavor">smil/cutmarks</configuration>
+      </configurations>
+    </operation>
+
+    <operation
+        id="clone"
+        description="Clone for editor"
+        exception-handler-workflow="partial-error">
+      <configurations>
+        <configuration key="source-flavor">smil/cutmarks</configuration>
+        <configuration key="target-flavor">smil/bbb-cutting</configuration>
+      </configurations>
+    </operation>
+
+    <operation id="editor"
+               exception-handler-workflow="partial-error"
+               description="Cut the recording according to the edit decision list">
+      <configurations>
+        <configuration key="source-flavors">*/unified</configuration>
+        <configuration key="smil-flavors">smil/bbb-cutting</configuration>
+        <configuration key="target-smil-flavor">smil/bbb-cutting</configuration>
+        <configuration key="target-flavor-subtype">prepared</configuration>
+        <configuration key="interactive">false</configuration>
+      </configurations>
+    </operation>
+
+    <!-- Apply defaults for preview artifacts -->
+    <operation
+        id="defaults"
+        description="Applying default configuration values">
+      <configurations>
+        <configuration key="thumbnailType">0</configuration>
+        <configuration key="thumbnailPosition">1</configuration>
+      </configurations>
+    </operation>
+
+    <!-- Create preview artifacts -->
+    <operation
+        id="include"
+        description="Prepare preview versions of the recording">
+      <configurations>
+        <configuration key="workflow-id">partial-preview</configuration>
+      </configurations>
+    </operation>
+
+    <!-- Publish -->
+    <operation
+        id="include"
+        description="Publish the recording">
+      <configurations>
+        <configuration key="workflow-id">partial-publish</configuration>
+      </configurations>
+    </operation>
+
+    <!-- Archive the final state of the media package -->
+    <operation
+        id="export-wf-properties"
+        fail-on-error="false"
+        description="Export workflow settings to Java properties file">
+      <configurations>
+        <configuration key="target-flavor">processing/defaults</configuration>
+        <configuration key="target-tags">archive</configuration>
+        <configuration key="keys">publishLive, publishToEngage, publishToSearch, publishToOaiPmh, publishToAws, straightToPublishing, flagQuality360p, flagQuality480p, flagQuality720p, flagQuality1080p, flagQuality2160p, flagQuality1200x800p, flagForReview, flagForCutting, thumbnailType, thumbnailPosition</configuration>
+      </configurations>
+    </operation>
+
+    <operation
+        id="tag"
+        description="Untagging source material for archival removal">
+      <configurations>
+        <configuration key="source-flavors">*/source</configuration>
+        <configuration key="target-tags">-archive</configuration>
+      </configurations>
+    </operation>
+
+    <operation
+        id="tag"
+        description="Tagging work material for archival">
+      <configurations>
+        <configuration key="source-flavors">*/prepared</configuration>
+        <configuration key="target-tags">+archive</configuration>
+      </configurations>
+    </operation>
+
+    <operation
+        id="snapshot"
+        fail-on-error="true"
+        exception-handler-workflow="partial-error"
+        description="Archiving">
+      <configurations>
+        <configuration key="source-tags">archive</configuration>
+      </configurations>
+    </operation>
+
+    <!-- Delete every but the last snapshot -->
+    <operation
+        id="asset-delete"
+        fail-on-error="true"
+        exception-handler-workflow="partial-error"
+        description="Delete every older Snapshot from AssetManager">
+      <configurations>
+        <configuration key="keep-last-snapshot">true</configuration>
+      </configurations>
+    </operation>
+
+    <!-- Clean up the working file repository -->
+
+    <operation
+        id="cleanup"
+        fail-on-error="false"
+        description="Cleaning up">
+      <configurations>
+        <configuration key="delete-external">true</configuration>
+        <!-- FixMe Don't clean up ACLs until workflow service no longer looks for them in the WFR. -->
+        <configuration key="preserve-flavors">security/*</configuration>
+      </configurations>
+    </operation>
+
+  </operations>
+
+</definition>
