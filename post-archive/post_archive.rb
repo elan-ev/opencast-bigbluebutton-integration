@@ -44,10 +44,14 @@ config_defaults = {
   },
 }
 
+# initialize logger
+logger = Logger.new("/var/log/bigbluebutton/post_archive.log", 'weekly' )
+logger.level = Logger::INFO
+BigBlueButton.logger = logger
+
 # Parse configuration from config file
 $config = TomlRB.load_file(__dir__ + '/post_archive_config.toml', symbolize_keys: true)
-BigBlueButton.logger.info( $config)
-BigBlueButton.logger.info( $config.dig(:opencast, :server))
+BigBlueButton.logger.info("Opencast Server: " + $config.dig(:opencast, :server))
 
 # Check for essential values
 $config[:opencast].each do |oc_key, oc_value|
@@ -489,17 +493,13 @@ end
 ### Initialization begin
 
 #
-# Parse cmd args from BBB and initialize logger
+# Parse cmd args from BBB
 
 opts = Optimist::options do
   opt :meeting_id, "Meeting id to archive", :type => String
   opt :file_type, "File type", :type => String
 end
 meeting_id = opts[:meeting_id]
-
-logger = Logger.new("/var/log/bigbluebutton/post_archive.log", 'weekly' )
-logger.level = Logger::INFO
-BigBlueButton.logger = logger
 
 archived_files = "/var/bigbluebutton/recording/raw/#{meeting_id}"
 meeting_metadata = BigBlueButton::Events.get_meeting_metadata("#{archived_files}/events.xml")
