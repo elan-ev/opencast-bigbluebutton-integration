@@ -238,6 +238,11 @@ def checkForTranscode(path, filename)
   pathToFile = File.join(path, filename)
   outputPathToFile = File.join(TMP_PATH, pathToFile)
 
+  if (File.zero?(pathToFile))
+    BigBlueButton.logger.info( "Video file #{pathToFile} has size zero, skipping...")
+    return path
+  end
+
   if ($config.dig(:miscellaneous, :doNotConvertVideosAgain) && File.exists?(outputPathToFile))
     BigBlueButton.logger.info( "Converted video for #{pathToFile} already exists, skipping...")
     return outputPathToFile
