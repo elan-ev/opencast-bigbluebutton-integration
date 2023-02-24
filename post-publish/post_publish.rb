@@ -83,7 +83,7 @@ DEFAULT_REQUEST_TIMEOUT = 10                                  # Http request tim
 START_WORKFLOW_REQUEST_TIMEOUT = 6000                         # Specific timeout; Opencast runs MediaInspector on every file, which can take quite a while
 ACL_PATH = File.join(published_files, "acl.xml")
 
-BigBlueButton.logger.info( "Prepare Metadata for [#{meeting_id}]...")
+BigBlueButton.logger.info("Prepare Metadata for [#{meeting_id}]...")
 
 # Check parameters sent via metadata
 if meeting_metadata["opencast-add-webcams"].nil?
@@ -93,7 +93,7 @@ end
 # Create metadata file dublincore
 dc_data = OcDublincore::parseDcMetadata(meeting_metadata, server: $config.dig(:opencast, :server), user: $config.dig(:opencast, :user), password: $config.dig(:opencast, :password))
 dublincoreXML = OcDublincore::createDublincore(dc_data)
-BigBlueButton.logger.info( "Dublincore: \n" + dublincoreXML.to_s)
+BigBlueButton.logger.info("Dublincore: \n" + dublincoreXML.to_s)
 
 # Create ACLs at path
 aclData = OcAcl::parseEpisodeAclMetadata(meeting_metadata, $config.dig(:defaultRoles, :readPerm), $config.dig(:defaultRoles, :writePerm))
@@ -110,7 +110,7 @@ end
 # Create a mediapackage and ingest it
 #
 
-BigBlueButton.logger.info( "Upload Recording for [#{meeting_id}]...")
+BigBlueButton.logger.info("Upload Recording for [#{meeting_id}]...")
 
 # Create Mediapackage
 if !dc_data[:identifier].to_s.empty?
@@ -129,7 +129,7 @@ mediapackageId = doc.xpath("/*")[0].attr('id')
 
 # Add Track
 if (File.exists?(published_files + '/video/webcams.webm') && meeting_metadata["opencast-add-webcams"] == 'true')
-  BigBlueButton.logger.info( "Found presenter video")
+  BigBlueButton.logger.info("Found presenter video")
   mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                   :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
                   { :flavor => 'presenter/source',
@@ -137,7 +137,7 @@ if (File.exists?(published_files + '/video/webcams.webm') && meeting_metadata["o
                     :body => File.open(published_files + '/video/webcams.webm', 'rb') })
 end
 if (File.exists?(published_files + '/deskshare/deskshare.webm'))
-  BigBlueButton.logger.info( "Found presentation video")
+  BigBlueButton.logger.info("Found presentation video")
   mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                   :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
                   { :flavor => 'presentation/source',
@@ -159,16 +159,16 @@ if (File.file?(ACL_PATH))
                   :flavor => "security/xacml+episode",
                   :body => File.open(ACL_PATH, 'rb') })
 else
-  BigBlueButton.logger.info( "No ACL found, skipping adding ACL.")
+  BigBlueButton.logger.info("No ACL found, skipping adding ACL.")
 end
 
 # Ingest and start workflow
-BigBlueButton.logger.info( "Uploading...")
+BigBlueButton.logger.info("Uploading...")
 response = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                 :post, '/ingest/ingest/' + $config.dig(:opencast, :workflow), START_WORKFLOW_REQUEST_TIMEOUT,
                 { :mediaPackage => mediapackage },
                 "LOG ERROR Aborting ingest with BBB id #{meeting_id} and OC id #{mediapackageId}")
-BigBlueButton.logger.info( "Upload for [#{meeting_id}] ends")
+BigBlueButton.logger.info("Upload for [#{meeting_id}] ends")
 
 # Remove temporary files
 if (File.file?(ACL_PATH))

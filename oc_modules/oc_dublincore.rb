@@ -137,7 +137,7 @@ module OcDublincore
     # Check for UUID conformity
     uuid_regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     if !(identifier.to_s.downcase =~ uuid_regex)
-      BigBlueButton.logger.info( "OC_DUBLINCORE: The given identifier <#{identifier}> is not a valid UUID. Will be using generated UUID instead.")
+      BigBlueButton.logger.info("OC_DUBLINCORE: The given identifier <#{identifier}> is not a valid UUID. Will be using generated UUID instead.")
       return nil
     end
 
@@ -154,7 +154,7 @@ module OcDublincore
       existsInOpencast = false
     end
     if existsInOpencast
-      BigBlueButton.logger.info( "OC_DUBLINCORE: The given identifier <#{identifier}> already exists within Opencast. Will be using generated UUID instead.")
+      BigBlueButton.logger.info("OC_DUBLINCORE: The given identifier <#{identifier}> already exists within Opencast. Will be using generated UUID instead.")
       return nil
     end
 
