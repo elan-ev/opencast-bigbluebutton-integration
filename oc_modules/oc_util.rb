@@ -103,10 +103,10 @@ module OcUtil
         :payload => payload
       ).execute
     rescue RestClient::Exception => e
-      BigBlueButton.logger.error(" A problem occured for request: #{url}")
-      BigBlueButton.logger.info( e)
-      BigBlueButton.logger.info( e.http_body)
-      BigBlueButton.logger.info( additionalErrorMessage)
+      BigBlueButton.logger.error("A problem occured for request: #{url}")
+      BigBlueButton.logger.info(e)
+      BigBlueButton.logger.info(e.http_body)
+      BigBlueButton.logger.info(additionalErrorMessage)
       exit 1
     end
 

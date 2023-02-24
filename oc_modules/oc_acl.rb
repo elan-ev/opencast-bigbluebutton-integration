@@ -201,7 +201,7 @@ module OcAcl
   #
   def createSeries(meeting_metadata, oc_server, oc_user, oc_password, defaultSeriesRolesWithReadPerm="", defaultSeriesRolesWithWritePerm="")
     if !oc_server || !oc_user || !oc_password
-      BigBlueButton.logger.warn(" OC_ACL: Cannot create or update series: No credentials given.")
+      BigBlueButton.logger.warn("OC_ACL: Cannot create or update series: No credentials given.")
       return nil
     end
 
@@ -210,11 +210,11 @@ module OcAcl
 
     createSeriesId = meeting_metadata["opencast-dc-ispartof"]
     if (createSeriesId.to_s.empty?)
-      BigBlueButton.logger.warn(" OC_ACL: Cannot create or update series: Metadata does not contain a seriesId.")
+      BigBlueButton.logger.warn("OC_ACL: Cannot create or update series: Metadata does not contain a seriesId.")
       return
     end
 
-    BigBlueButton.logger.info( "OC_ACL: Attempting to create a new series...")
+    BigBlueButton.logger.info("OC_ACL: Attempting to create a new series...")
 
     # Acquire information about all series
     seriesFromOc = []
@@ -236,27 +236,27 @@ module OcAcl
     begin
       seriesFromOc = JSON.parse(seriesFromOc)
       seriesFromOc["series"].each do |serie|
-        BigBlueButton.logger.info( "OC_ACL: Found series: " + serie["identifier"].to_s)
+        BigBlueButton.logger.info("OC_ACL: Found series: " + serie["identifier"].to_s)
         if (serie["identifier"].to_s === createSeriesId.to_s)
           seriesExists = true
-          BigBlueButton.logger.info( "OC_ACL: Series already exists")
+          BigBlueButton.logger.info("OC_ACL: Series already exists")
           break
         end
       end
     rescue JSON::ParserError  => e
-      BigBlueButton.logger.warn(" OC_ACL: Could not parse series JSON, Exception #{e}")
+      BigBlueButton.logger.warn("OC_ACL: Could not parse series JSON, Exception #{e}")
     end
 
     # Create Series
     if (!seriesExists)
-      BigBlueButton.logger.info( "OC_ACL: Create a new series with ID " + createSeriesId)
+      BigBlueButton.logger.info("OC_ACL: Create a new series with ID " + createSeriesId)
       # Create Series-DC
       seriesDcData = OcDublincore::parseSeriesDcMetadata(meeting_metadata)
       seriesDublincore = OcDublincore::createDublincore(seriesDcData)
       # Create Series-ACL
       seriesAcl = createSeriesAcl(parseSeriesAclMetadata(meeting_metadata, defaultSeriesRolesWithReadPerm,
                   defaultSeriesRolesWithWritePerm))
-      BigBlueButton.logger.info( "OC_ACL: seriesAcl: " + seriesAcl.to_s)
+      BigBlueButton.logger.info("OC_ACL: seriesAcl: " + seriesAcl.to_s)
 
       begin
         response = RestClient::Request.new(
@@ -275,7 +275,7 @@ module OcAcl
 
     # Update Series ACL
     else
-      BigBlueButton.logger.info( "OC_ACL: Updating series ACL...")
+      BigBlueButton.logger.info("OC_ACL: Updating series ACL...")
       # seriesAcl = requestIngestAPI(:get, '/series/' + createSeriesId + '/acl.xml', DEFAULT_REQUEST_TIMEOUT, {})
       seriesAcl = []
       begin
@@ -307,9 +307,9 @@ module OcAcl
           "LOG WARN OC_ACL: Something went wrong during series update, Exception #{e}"
           return
         end
-        BigBlueButton.logger.info( "OC_ACL: Updated series ACL")
+        BigBlueButton.logger.info("OC_ACL: Updated series ACL")
       else
-        BigBlueButton.logger.info( "OC_ACL: Nothing to update ACL with")
+        BigBlueButton.logger.info("OC_ACL: Nothing to update ACL with")
       end
     end
   end

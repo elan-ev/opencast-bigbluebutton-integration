@@ -45,7 +45,7 @@ config_defaults = {
 }
 
 # initialize logger
-logger = Logger.new("/var/log/bigbluebutton/post_archive.log", 'weekly' )
+logger = Logger.new("/var/log/bigbluebutton/post_archive.log", 'weekly')
 logger.level = Logger::INFO
 BigBlueButton.logger = logger
 
@@ -56,7 +56,7 @@ BigBlueButton.logger.info("Opencast Server: " + $config.dig(:opencast, :server))
 # Check for essential values
 $config[:opencast].each do |oc_key, oc_value|
   if oc_value.to_s.empty?
-    BigBlueButton.logger.error(" The config key " + oc_key + "is not set. Aborting...")
+    BigBlueButton.logger.error("The config key " + oc_key + "is not set. Aborting...")
     exit 1
   end
 end
@@ -244,7 +244,7 @@ def checkForTranscode(path, filename)
   end
 
   if ($config.dig(:miscellaneous, :doNotConvertVideosAgain) && File.exists?(outputPathToFile))
-    BigBlueButton.logger.info( "Converted video for #{pathToFile} already exists, skipping...")
+    BigBlueButton.logger.info("Converted video for #{pathToFile} already exists, skipping...")
     return outputPathToFile
   end
 
@@ -252,17 +252,17 @@ def checkForTranscode(path, filename)
   transcodeCommands = []
   movie = FFMPEG::Movie.new(pathToFile)
   unless (movie.width % 2 == 0 && movie.height % 2 == 0)
-    BigBlueButton.logger.info( "Video #{pathToFile} requires cropping to be DivBy2")
+    BigBlueButton.logger.info("Video #{pathToFile} requires cropping to be DivBy2")
     transcodeCommands.push(%w(-y -r 30 -vf crop=trunc(iw/2)*2:trunc(ih/2)*2))
   end
   if (movie.duration <= 0)
-    BigBlueButton.logger.info( "Video #{pathToFile} requires transcoding due to missing duration")
+    BigBlueButton.logger.info("Video #{pathToFile} requires transcoding due to missing duration")
     transcodeCommands.push(%w(-y -c copy))
   end
 
   # Run gathered commands
   if(transcodeCommands.length == 0)
-    BigBlueButton.logger.info( "Video #{pathToFile} is fine")
+    BigBlueButton.logger.info("Video #{pathToFile} is fine")
     return path
   else
     # Create path to save conversion to
@@ -271,15 +271,15 @@ def checkForTranscode(path, filename)
       FileUtils.mkdir_p(outputPath)
     end
 
-    BigBlueButton.logger.info( "Start converting #{pathToFile} ...")
+    BigBlueButton.logger.info("Start converting #{pathToFile} ...")
     transcodeCommands.each do | command |
-      BigBlueButton.logger.info( "Running ffmpeg with options: #{command}")
+      BigBlueButton.logger.info("Running ffmpeg with options: #{command}")
       movie.transcode(outputPath + 'tmp' + filename, command)
       FileUtils.mv(outputPath + 'tmp' + filename, outputPathToFile)
       movie = FFMPEG::Movie.new(outputPathToFile)   # Further transcoding should happen on the new file
     end
 
-    BigBlueButton.logger.info( "Done converting #{pathToFile}")
+    BigBlueButton.logger.info("Done converting #{pathToFile}")
     return outputPath
   end
 end
@@ -299,12 +299,12 @@ def collectFileInformation(tracks, flavor, startTimes, real_start_time)
   startTimes.each do |file|
     pathToFile = File.join(file["filepath"], file["filename"])
 
-    BigBlueButton.logger.info( "PathToFile: #{pathToFile}")
+    BigBlueButton.logger.info("PathToFile: #{pathToFile}")
 
     if (File.exists?(pathToFile))
       # File Integrity check
       if (!FFMPEG::Movie.new(pathToFile).valid?)
-        BigBlueButton.logger.info( "The file #{pathToFile} is ffmpeg-invalid and won't be ingested")
+        BigBlueButton.logger.info("The file #{pathToFile} is ffmpeg-invalid and won't be ingested")
         next
       end
 
@@ -355,7 +355,7 @@ end
 # recordingStop: array[string], times when the recording button was pressed in epoch time
 #
 def parseChat(doc, chatFilePath, realStartTime, recordingStart, recordingStop)
-  BigBlueButton.logger.info( "Parsing chat messages")
+  BigBlueButton.logger.info("Parsing chat messages")
 
   timeFormat = '%H:%M:%S.%L'
   displayMessageTimeMax = 3  # seconds
@@ -448,12 +448,12 @@ def monitorOpencastWorkflow(ingestResponse, secondsBetweenChecks, secondsUntilGi
 
     # Check state
     if (state == "SUCCEEDED")
-      BigBlueButton.logger.info( "Workflow for " + mediapackageID + " succeeded.")
+      BigBlueButton.logger.info("Workflow for " + mediapackageID + " succeeded.")
       isOpencastDoneYet = true
     elsif (state == "RUNNING" || state == "INSTANTIATED")
-      BigBlueButton.logger.info( "Workflow for " + mediapackageID + " is " + state)
+      BigBlueButton.logger.info("Workflow for " + mediapackageID + " is " + state)
     else
-      BigBlueButton.logger.error(" Workflow for " + mediapackageID + " is in state + " + state + ", meaning it is neither running nor has it succeeded. Recording data for " + meetingId + " will not be cleaned up. Aborting...")
+      BigBlueButton.logger.error("Workflow for " + mediapackageID + " is in state + " + state + ", meaning it is neither running nor has it succeeded. Recording data for " + meetingId + " will not be cleaned up. Aborting...")
       exit 1
     end
 
@@ -479,14 +479,14 @@ def cleanup(tmp_path, meeting_id)
 
   # Inform BBB that the recording was successfully processed
   if ($config.dig(:cleanUp, :deleteByBBBCron))
-    BigBlueButton.logger.info( "Inform BBB daily cron about the \"successful publish\" of this meeting #{meeting_id}")
+    BigBlueButton.logger.info("Inform BBB daily cron about the \"successful publish\" of this meeting #{meeting_id}")
     File.open("/var/bigbluebutton/recording/status/published/#{meeting_id}-presentation.done", 'w') {|f| f.write("Published #{meeting_id}") }
   end
 
   # Delete all raw recording data
   # TODO: Find a way to outsource this into a script that runs after all post_archive scripts have run successfully
   if ($config.dig(:cleanUp, :deleteIfSuccessful))
-    BigBlueButton.logger.info( "Attempting to delete raw recording data for meeting #{meeting_id}")
+    BigBlueButton.logger.info("Attempting to delete raw recording data for meeting #{meeting_id}")
     system('sudo', 'bbb-record', '--delete', "#{meeting_id}") || raise('Failed to delete local recording')
   end
 end
@@ -578,7 +578,7 @@ end
 real_start_time, real_end_time = getRealStartEndTimes(doc)
 # Exit program if the recording was too short
 if (real_end_time - real_start_time) < ($config.dig(:miscellaneous, :minimalDuration) * 1000)
-  BigBlueButton.logger.info( "Recording too short, aborting...")
+  BigBlueButton.logger.info("Recording too short, aborting...")
   cleanup(TMP_PATH, meeting_id)
   exit 0
 end
@@ -605,7 +605,7 @@ end
 
 # Exit program if the recording was not pressed
 if ($config.dig(:miscellaneous, :onlyIngestIfRecordButtonWasPressed) && recordingStart.length == 0)
-  BigBlueButton.logger.info( "Recording Button was not pressed, aborting...")
+  BigBlueButton.logger.info("Recording Button was not pressed, aborting...")
   cleanup(TMP_PATH, meeting_id)
   exit 0
 # Or instead assume that everything should be recorded
@@ -638,21 +638,21 @@ tracks = collectFileInformation(tracks, 'presentation/source', deskshareStart, r
 tracks = collectFileInformation(tracks, 'presentation/source', presentationSlidesStart, real_start_time)
 
 if(tracks.length == 0)
-  BigBlueButton.logger.warn(" There are no files, nothing to do here")
+  BigBlueButton.logger.warn("There are no files, nothing to do here")
   cleanup(TMP_PATH, meeting_id)
   exit 0
 end
 
 # Sort tracks in ascending order by their startTime, as is required by PartialImportWOH
 tracks = tracks.sort_by { |k| k[:startTime] }
-BigBlueButton.logger.info( "Sorted tracks: ")
-BigBlueButton.logger.info( tracks)
+BigBlueButton.logger.info("Sorted tracks: ")
+BigBlueButton.logger.info(tracks)
 
 # Create metadata file dublincore
 dc_data = OcDublincore::parseDcMetadata(meeting_metadata, startTime: real_start_time, stopTime: real_end_time,
   server: $config.dig(:opencast, :server), user: $config.dig(:opencast, :user), password: $config.dig(:opencast, :password))
 dublincore = OcDublincore::createDublincore(dc_data)
-BigBlueButton.logger.info( "Dublincore: \n" + dublincore.to_s)
+BigBlueButton.logger.info("Dublincore: \n" + dublincore.to_s)
 
 # Create Json containing cutting marks at path
 createCuttingMarksJSONAtPath(CUTTING_JSON_PATH, recordingStart, recordingStop, real_start_time, real_end_time)
@@ -687,27 +687,27 @@ else
   mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                   :get, '/ingest/createMediaPackage', DEFAULT_REQUEST_TIMEOUT, {})
 end
-BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+BigBlueButton.logger.info("Mediapackage: \n" + mediapackage)
 # Get mediapackageId for debugging
 doc = Nokogiri::XML(mediapackage)
 mediapackageId = doc.xpath("/*")[0].attr('id')
 # Add Partial Track
 tracks.each do |track|
-  BigBlueButton.logger.info( "Track: " + track.to_s)
+  BigBlueButton.logger.info("Track: " + track.to_s)
   mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                   :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
                   { :flavor => track[:flavor],
                     :startTime => track[:startTime],
                     :mediaPackage => mediapackage,
                     :body => File.open(track[:path], 'rb') })
-  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+  BigBlueButton.logger.info("Mediapackage: \n" + mediapackage)
 end
 # Add dublincore
 mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                 :post, '/ingest/addDCCatalog', DEFAULT_REQUEST_TIMEOUT,
                 {:mediaPackage => mediapackage,
                  :dublinCore => dublincore })
-BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+BigBlueButton.logger.info("Mediapackage: \n" + mediapackage)
 # Add cutting marks
 mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                 :post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
@@ -716,7 +716,7 @@ mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config
                  :body => File.open(CUTTING_JSON_PATH, 'rb')})
                  #:body => File.open(File.join(archived_files, "cutting.json"), 'rb')})
 
-BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+BigBlueButton.logger.info("Mediapackage: \n" + mediapackage)
 # Add Shared Notes
 if ($config.dig(:addFiles, :sharedNotesEtherpadAsAttachment) && File.file?(File.join(SHARED_NOTES_PATH, "notes.etherpad")))
   mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
@@ -724,9 +724,9 @@ if ($config.dig(:addFiles, :sharedNotesEtherpadAsAttachment) && File.file?(File.
                   {:mediaPackage => mediapackage,
                   :flavor => "etherpad/sharednotes",
                   :body => File.open(File.join(SHARED_NOTES_PATH, "notes.etherpad"), 'rb') })
-  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+  BigBlueButton.logger.info("Mediapackage: \n" + mediapackage)
 else
-  BigBlueButton.logger.info( "Adding Shared notes is either disabled or the etherpad was not found, skipping adding Shared Notes Etherpad.")
+  BigBlueButton.logger.info("Adding Shared notes is either disabled or the etherpad was not found, skipping adding Shared Notes Etherpad.")
 end
 if ($config.dig(:addFiles, :sharedNotesHmtlAsAttachment) && File.file?(File.join(SHARED_NOTES_PATH, "notes.html")))
   mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
@@ -735,7 +735,7 @@ if ($config.dig(:addFiles, :sharedNotesHmtlAsAttachment) && File.file?(File.join
                   :flavor => "html/sharednotes",
                   :body => File.open(File.join(SHARED_NOTES_PATH, "notes.html"), 'rb') })
 else
-  BigBlueButton.logger.info( "No HTML source for shared notes found or disabled.")
+  BigBlueButton.logger.info("No HTML source for shared notes found or disabled.")
 end
 if ($config.dig(:addFiles, :sharedNotesPdfAsAttachment) && File.file?(File.join(SHARED_NOTES_PATH, "notes.pdf")))
   mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
@@ -744,7 +744,7 @@ if ($config.dig(:addFiles, :sharedNotesPdfAsAttachment) && File.file?(File.join(
                   :flavor => "pdf/sharednotes",
                   :body => File.open(File.join(SHARED_NOTES_PATH, "notes.pdf"), 'rb') })
 else
-  BigBlueButton.logger.info( "No PDF source for shared notes found or disabled.")
+  BigBlueButton.logger.info("No PDF source for shared notes found or disabled.")
 end
 
 # Add Chat as subtitles
@@ -754,9 +754,9 @@ if ($config.dig(:addFiles, :chatAsSubtitleAttachment) && File.file?(CHAT_PATH))
                   {:mediaPackage => mediapackage,
                   :flavor => "captions/vtt+en",
                   :body => File.open(CHAT_PATH, 'rb') })
-  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+  BigBlueButton.logger.info("Mediapackage: \n" + mediapackage)
 else
-  BigBlueButton.logger.info( "Adding Chat as subtitles is either disabled or there was no chat, skipping adding Chat as subtitles.")
+  BigBlueButton.logger.info("Adding Chat as subtitles is either disabled or there was no chat, skipping adding Chat as subtitles.")
 end
 # Add presentations
 if ($config.dig(:addFiles, :presentationsAsPdf))
@@ -769,14 +769,14 @@ if ($config.dig(:addFiles, :presentationsAsPdf))
                     {:mediaPackage => mediapackage,
                     :flavor => "presentation/pdf",
                     :body => File.open(presentationFilePath, 'rb') })
-      BigBlueButton.logger.info( "Added presentation: #{presentationFilePath}")
+      BigBlueButton.logger.info("Added presentation: #{presentationFilePath}")
     else
-      BigBlueButton.logger.info( "Could not add: #{presentationFilePath}. File does not exist.")
+      BigBlueButton.logger.info("Could not add: #{presentationFilePath}. File does not exist.")
     end
   end
-  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+  BigBlueButton.logger.info("Mediapackage: \n" + mediapackage)
 else
-  BigBlueButton.logger.info( "Adding Presentations as PDFs is disabled, skipping adding Presentations as PDFs.")
+  BigBlueButton.logger.info("Adding Presentations as PDFs is disabled, skipping adding Presentations as PDFs.")
 end
 # Add ACL
 if (File.file?(ACL_PATH))
@@ -785,16 +785,16 @@ if (File.file?(ACL_PATH))
                   {:mediaPackage => mediapackage,
                   :flavor => "security/xacml+episode",
                   :body => File.open(ACL_PATH, 'rb') })
-  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+  BigBlueButton.logger.info("Mediapackage: \n" + mediapackage)
 else
-  BigBlueButton.logger.info( "No ACL found, skipping adding ACL.")
+  BigBlueButton.logger.info("No ACL found, skipping adding ACL.")
 end
 # Ingest and start workflow
 response = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                 :post, '/ingest/ingest/' + $config.dig(:opencast, :workflow), START_WORKFLOW_REQUEST_TIMEOUT,
                 { :mediaPackage => mediapackage },
                 "LOG ERROR Aborting ingest with BBB id " + meeting_id + "and OC id" + mediapackageId )
-BigBlueButton.logger.info( response)
+BigBlueButton.logger.info(response)
 
 ### Monitor Opencast
 if $config.dig(:monitoring, :monitorOpencastAfterIngest)
