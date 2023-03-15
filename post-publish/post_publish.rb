@@ -23,6 +23,7 @@
 require "shellwords"
 require "optimist"
 require 'nokogiri'        #XML-Parser
+require 'toml-rb'
 require File.expand_path('../../../lib/recordandplayback', __FILE__)
 
 require_relative 'oc_modules/oc_dublincore'
@@ -71,17 +72,19 @@ $config = config_defaults.merge($config)
 
 opts = Optimist::options do
  opt :meeting_id, "Meeting id to archive", :type => String
- opt :file_type, "File type", :type => String
+ opt :format, "Playback format name", :type => String
 end
 meeting_id = opts[:meeting_id]
+format = opts[:format]
 
-published_files = "/var/bigbluebutton/published/presentation/#{meeting_id}"
+published_presentation_files = "/var/bigbluebutton/published/presentation/#{meeting_id}"
+published_video_files = "/var/bigbluebutton/published/video/#{meeting_id}"
 meeting_metadata = BigBlueButton::Events.get_meeting_metadata("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml")
 
 # Variables
 DEFAULT_REQUEST_TIMEOUT = 10                                  # Http request timeout in seconds
 START_WORKFLOW_REQUEST_TIMEOUT = 6000                         # Specific timeout; Opencast runs MediaInspector on every file, which can take quite a while
-ACL_PATH = File.join(published_files, "acl.xml")
+ACL_PATH = File.join(published_presentation_files, "acl.xml")
 
 BigBlueButton.logger.info( "Prepare Metadata for [#{meeting_id}]...")
 
@@ -128,21 +131,32 @@ doc = Nokogiri::XML(mediapackage)
 mediapackageId = doc.xpath("/*")[0].attr('id')
 
 # Add Track
-if (File.exists?(published_files + '/video/webcams.webm') && meeting_metadata["opencast-add-webcams"] == 'true')
-  BigBlueButton.logger.info( "Found presenter video")
+BigBlueButton.logger.info( "Playback format: #{format}")
+
+if (format == 'video')
+  BigBlueButton.logger.info( "Found video")
   mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
-                  :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
-                  { :flavor => 'presenter/source',
-                    :mediaPackage => mediapackage,
-                    :body => File.open(published_files + '/video/webcams.webm', 'rb') })
-end
-if (File.exists?(published_files + '/deskshare/deskshare.webm'))
-  BigBlueButton.logger.info( "Found presentation video")
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
-                  :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
+                  :post, '/ingest/addTrack', DEFAULT_REQUEST_TIMEOUT,
                   { :flavor => 'presentation/source',
                     :mediaPackage => mediapackage,
-                    :body => File.open(published_files + '/deskshare/deskshare.webm', 'rb') })
+                    :body => File.open(published_video_files + '/video-0.m4v', 'rb') })
+else
+  if (File.exists?(published_presentation_files + '/video/webcams.webm') && meeting_metadata["opencast-add-webcams"] == 'true')
+    BigBlueButton.logger.info( "Found presenter video")
+    mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+                    :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
+                    { :flavor => 'presenter/source',
+                      :mediaPackage => mediapackage,
+                      :body => File.open(published_presentation_files + '/video/webcams.webm', 'rb') })
+  end
+  if (File.exists?(published_presentation_files + '/deskshare/deskshare.webm'))
+    BigBlueButton.logger.info( "Found presentation video")
+    mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+                    :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
+                    { :flavor => 'presentation/source',
+                      :mediaPackage => mediapackage,
+                      :body => File.open(published_presentation_files + '/deskshare/deskshare.webm', 'rb') })
+  end
 end
 
 # Add dublincore
