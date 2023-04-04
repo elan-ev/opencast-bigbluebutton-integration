@@ -12,12 +12,13 @@ The Idea
     - Combined video of all webcams
     - Video of Screen recording
     - Combined audio
+    - Single file recording (see [Configure Single File Recording](#configure-single-file-recording))
 
 Requirements
 ------------
 
 - The Ruby gem `rest-client` is used to send requests to Opencast.
-If it is not yet installed, manually install it via `gem install rest-client`.
+If it is not yet installed, add the line `gem 'rest-client'` to the `GEMFILE` located at `/usr/local/bigbluebutton/core/Gemfile`. Possibly, you also need to add `gem 'toml-rb'` and `gem 'shellwords'` to the `GEMFILE`.
 
 Set Up BigBlueButton
 ----------------------
@@ -34,6 +35,39 @@ modules that are necessary for the script to run.
 
     /usr/local/bigbluebutton/core/scripts/post_publish/oc_modules
 
+Configure Single File Recording
+-------------------------------
+
+The single file recording contains webcams, presentation and screensharing. This recording provides an alternative to the separate video files that are uploaded to Opencast. To process and transfer these recordings, you need to enable the `video` format on your BigBlueButton server.
+
+1. Install the package:
+
+        apt-get install bbb-playback-video
+
+2. Edit `/usr/local/bigbluebutton/core/scripts/bigbluebutton.yml`:
+
+        steps:
+            archive: "sanity"
+            sanity: "captions"
+            captions:
+                - "process:presentation"
+                - "process:video"
+            "process:presentation": "publish:presentation"
+            "process:video": "publish:video"
+
+    Alternative, if you don't want to process and upload the separate video files:
+
+        steps:
+            archive: "sanity"
+            sanity: "captions"
+            captions: "process:video"
+            "process:video": "publish:video"
+
+3. Restart processes:
+
+        systemctl restart bbb-rap-resque-worker.service nginx
+
+For more details, see [Install additional recording processing formats](https://docs.bigbluebutton.org/2.6/administration/customize#install-additional-recording-processing-formats).
 
 Limitations
 -----------
