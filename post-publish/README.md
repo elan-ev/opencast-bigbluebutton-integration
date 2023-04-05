@@ -12,13 +12,13 @@ The Idea
     - Combined video of all webcams
     - Video of Screen recording
     - Combined audio
-    - Single file recording (see [Configure Single File Recording](#configure-single-file-recording))
+- Based on BigBlueButton configuration a single file recording can be transfered (see [Configure Single File Recording](#configure-single-file-recording))
 
 Requirements
 ------------
 
 - The Ruby gem `rest-client` is used to send requests to Opencast.
-If it is not yet installed, add the line `gem 'rest-client'` to the `GEMFILE` located at `/usr/local/bigbluebutton/core/Gemfile`. Possibly, you also need to add `gem 'toml-rb'` and `gem 'shellwords'` to the `GEMFILE`.
+If it is not yet installed, add the line `gem 'rest-client'` to the `GEMFILE` located at `/usr/local/bigbluebutton/core/Gemfile`. If not already present in the gemfile, you also need to add `gem 'toml-rb'` and `gem 'shellwords'`. Finally, you need to run `bundle install` to install the gems.
 
 Set Up BigBlueButton
 ----------------------
@@ -38,7 +38,7 @@ modules that are necessary for the script to run.
 Configure Single File Recording
 -------------------------------
 
-The single file recording contains webcams, presentation and screensharing. This recording provides an alternative to the separate video files that are uploaded to Opencast. To process and transfer these recordings, you need to enable the `video` format on your BigBlueButton server.
+The single file recording contains webcams, presentation including markings, screensharing, poll results and audio. This file does not include chat, notes, users list and shared external videos. This recording provides an alternative to the separate video files that are uploaded to Opencast. To process and transfer these recordings, you need to enable the `video` format on your BigBlueButton server.
 
 1. Install the package:
 
@@ -55,7 +55,7 @@ The single file recording contains webcams, presentation and screensharing. This
             "process:presentation": "publish:presentation"
             "process:video": "publish:video"
 
-    Alternative, if you don't want to process and upload the separate video files:
+    Alternatively, if you want to process and transfer only the single recording file, remove in `steps` the lines of the "presentation" format as follows:
 
         steps:
             archive: "sanity"
@@ -67,7 +67,7 @@ The single file recording contains webcams, presentation and screensharing. This
 
         systemctl restart bbb-rap-resque-worker.service nginx
 
-For more details, see [Install additional recording processing formats](https://docs.bigbluebutton.org/2.6/administration/customize#install-additional-recording-processing-formats).
+For more details, see [Install additional recording processing formats](https://docs.bigbluebutton.org/administration/customize/#install-additional-recording-processing-formats).
 
 Limitations
 -----------
