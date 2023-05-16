@@ -77,3 +77,8 @@ Nevertheless, there are a few limitations.
 
 - BigBlueButton includes audio only in the camera recording, not in the screen recording.
   Your Opencast workflow will need to fix that.
+  
+Known Issue
+-----------
+
+Possibly, the media files for the format `presentation` could be missing in the transmitted media package and could lead to processing errors in your opencast workflow. This could be caused by disabled processing scripts for `presentation` by the command `sudo bbb-record --disable presentation` on your bbb instance. The scripts can be enabled with `sudo bbb-record --enable presentation` and everything should work fine.
