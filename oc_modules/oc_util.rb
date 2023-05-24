@@ -108,6 +108,10 @@ module OcUtil
       BigBlueButton.logger.info( e.http_body)
       BigBlueButton.logger.info( additionalErrorMessage)
       exit 1
+    rescue => e
+      BigBlueButton.logger.error("An unknown problem occured for request: #{url}")
+      BigBlueButton.logger.info(e)
+      exit 1
     end
 
     return response
