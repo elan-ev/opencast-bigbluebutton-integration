@@ -221,7 +221,7 @@ module OcAcl
     begin
       seriesFromOc = RestClient::Request.new(
         :method => :get,
-        :url => oc_server + '/series/allSeriesIdTitle.json',
+        :url => oc_server + '/api/series/series.json',
         :user => oc_user,
         :password => oc_password,
         :payload => {}
@@ -235,7 +235,7 @@ module OcAcl
     seriesExists = false
     begin
       seriesFromOc = JSON.parse(seriesFromOc)
-      seriesFromOc["series"].each do |serie|
+      seriesFromOc.each do |serie|
         BigBlueButton.logger.info( "OC_ACL: Found series: " + serie["identifier"].to_s)
         if (serie["identifier"].to_s === createSeriesId.to_s)
           seriesExists = true
@@ -261,7 +261,7 @@ module OcAcl
       begin
         response = RestClient::Request.new(
           :method => :post,
-          :url => oc_server + '/series/',
+          :url => oc_server + '/api/series/',
           :user => oc_user,
           :password => oc_password,
           :payload => { :series => seriesDublincore,
@@ -281,7 +281,7 @@ module OcAcl
       begin
         seriesAcl = RestClient::Request.new(
           :method => :get,
-          :url => oc_server + '/series/' + createSeriesId + '/acl.xml',
+          :url => oc_server + '/api/series/' + createSeriesId + '/acl.xml',
           :user => oc_user,
           :password => oc_password,
           :payload => { }
@@ -297,7 +297,7 @@ module OcAcl
         begin
           response = RestClient::Request.new(
             :method => :post,
-            :url => oc_server + '/series/' + createSeriesId + '/accesscontrol',
+            :url => oc_server + '/api/series/' + createSeriesId + '/accesscontrol',
             :user => oc_user,
             :password => oc_password,
             :payload => { :acl => updatedSeriesAcl,
