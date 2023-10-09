@@ -227,7 +227,7 @@ module OcAcl
         :payload => {}
       ).execute
     rescue RestClient::Exception => e
-      "LOG WARN Could not acquire information about series, Exception #{e}"
+      BigBlueButton.logger.warn(" Could not acquire information about series, Exception #{e}")
       return
     end
 
@@ -269,7 +269,7 @@ module OcAcl
                         :override => false}
         ).execute
       rescue RestClient::Exception => e
-        "LOG WARN Something went wrong during series creation, Exception #{e}"
+        BigBlueButton.logger.warn(" Something went wrong during series creation, Exception #{e}")
         return
       end
 
@@ -287,7 +287,7 @@ module OcAcl
           :payload => { }
         ).execute
       rescue RestClient::Exception => e
-        "LOG WARN OC_ACL: Something went wrong during series update, Exception #{e}"
+        BigBlueButton.logger.warn(" OC_ACL: Something went wrong during series update, Exception #{e}")
         return
       end
       roles = parseSeriesAclMetadata(meeting_metadata, defaultSeriesRolesWithReadPerm, defaultSeriesRolesWithWritePerm)
@@ -304,7 +304,7 @@ module OcAcl
                           :override => false }
           ).execute
         rescue RestClient::Exception => e
-          "LOG WARN OC_ACL: Something went wrong during series update, Exception #{e}"
+          BigBlueButton.logger.warn(" OC_ACL: Something went wrong during series update, Exception #{e}")
           return
         end
         BigBlueButton.logger.info( "OC_ACL: Updated series ACL")
