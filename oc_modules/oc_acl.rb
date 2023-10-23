@@ -224,7 +224,11 @@ module OcAcl
         :url => oc_server + '/api/series/series.json',
         :user => oc_user,
         :password => oc_password,
-        :payload => {}
+        :headers => {
+          :params => {
+            :seriesId => createSeriesId,
+          },
+        }
       ).execute
     rescue RestClient::Exception => e
       BigBlueButton.logger.warn(" Could not acquire information about series, Exception #{e}")
@@ -235,16 +239,12 @@ module OcAcl
     seriesExists = false
     begin
       seriesFromOc = JSON.parse(seriesFromOc)
-      seriesFromOc.each do |serie|
-        BigBlueButton.logger.info( "OC_ACL: Found series: " + serie["identifier"].to_s)
-        if (serie["identifier"].to_s === createSeriesId.to_s)
-          seriesExists = true
-          BigBlueButton.logger.info( "OC_ACL: Series already exists")
-          break
-        end
+      if (seriesFromOc.length() > 0)
+        seriesExists = true
+        BigBlueButton.logger.info( "OC_ACL: Series already exists")
       end
     rescue JSON::ParserError  => e
-      BigBlueButton.logger.warn(" OC_ACL: Could not parse series JSON, Exception #{e}")
+      BigBlueButton.logger.warn("OC_ACL: Could not parse series JSON, Exception #{e}")
     end
 
     # Create Series
