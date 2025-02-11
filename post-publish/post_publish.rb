@@ -81,6 +81,18 @@ published_presentation_files = "/var/bigbluebutton/published/presentation/#{meet
 published_video_files = "/var/bigbluebutton/published/video/#{meeting_id}"
 meeting_metadata = BigBlueButton::Events.get_meeting_metadata("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml")
 
+# Get events file handle
+doc = ''
+if(File.file?("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml"))
+  doc = Nokogiri::XML(File.open("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml"))
+else
+  BigBlueButton.logger.error(": NO EVENTS.XML for recording" + meeting_id + "! Nothing to parse, aborting...")
+  exit 1
+end
+
+# Get conference start and end timestamps in ms
+real_start_time, real_end_time = OcUtil::getRealStartEndTimes(doc)
+
 # Variables
 DEFAULT_REQUEST_TIMEOUT = 10                                  # Http request timeout in seconds
 START_WORKFLOW_REQUEST_TIMEOUT = 6000                         # Specific timeout; Opencast runs MediaInspector on every file, which can take quite a while
@@ -94,7 +106,8 @@ if meeting_metadata["opencast-add-webcams"].nil?
 end
 
 # Create metadata file dublincore
-dc_data = OcDublincore::parseDcMetadata(meeting_metadata, server: $config.dig(:opencast, :server), user: $config.dig(:opencast, :user), password: $config.dig(:opencast, :password))
+dc_data = OcDublincore::parseDcMetadata(meeting_metadata, startTime: real_start_time, stopTime: real_end_time,
+  server: $config.dig(:opencast, :server), user: $config.dig(:opencast, :user), password: $config.dig(:opencast, :password))
 dublincoreXML = OcDublincore::createDublincore(dc_data)
 BigBlueButton.logger.info( "Dublincore: \n" + dublincoreXML.to_s)
 

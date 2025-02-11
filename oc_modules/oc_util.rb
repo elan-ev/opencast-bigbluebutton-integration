@@ -118,4 +118,28 @@ module OcUtil
   end
   module_function :requestIngestAPI
 
+  #
+  # Parse TimeStamps - Start and End Time
+  #
+  # doc: file handle
+  #
+  # return: start and end time of the conference in ms (Unix EPOC)
+  #
+  def getRealStartEndTimes(doc)
+    # Parse general time values | Stolen from bigbluebutton/record-and-playback/presentation/scripts/process/presentation.rb
+    # Times in ms
+    meeting_start = doc.xpath("//event")[0][:timestamp]
+    meeting_end = doc.xpath("//event").last()[:timestamp]
+
+    meeting_id = doc.at_xpath("//meeting")[:id]
+    real_start_time = meeting_id.split('-').last
+    real_end_time = (real_start_time.to_i + (meeting_end.to_i - meeting_start.to_i)).to_s
+
+    real_start_time = real_start_time.to_i
+    real_end_time = real_end_time.to_i
+
+    return real_start_time, real_end_time
+  end
+  module_function :getRealStartEndTimes
+
 end
