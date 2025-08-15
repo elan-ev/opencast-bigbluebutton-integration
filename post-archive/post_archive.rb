@@ -587,6 +587,8 @@ deskshareStart = parseTimeStamps(doc, 'StartWebRTCDesktopShareEvent', deskshareS
 # Get webcam share start timestamps
 webcamStart = parseTimeStamps(doc, 'StartWebRTCShareEvent', webcamStart, VIDEO_PATH)
 # Get audio recording start timestamps
+liveKitaudioStart = parseTimeStamps(doc, 'AudioTrackPublishedEvent', audioStart, AUDIO_PATH)
+# Get audio recording start timestamps
 audioStart = parseTimeStamps(doc, 'StartRecordingEvent', audioStart, AUDIO_PATH)
 # Get cut marks
 recordingStart, recordingStop = parseTimeStampsRecording(doc, 'RecordStatusEvent', recordingStart, recordingStop, real_end_time)
@@ -630,6 +632,8 @@ else
   end
 end
 
+# Add audio tracks (Likely to be only one track)
+tracks = collectFileInformation(tracks, 'presentation/source', liveKitaudioStart, real_start_time)
 # Add audio tracks (Likely to be only one track)
 tracks = collectFileInformation(tracks, 'presentation/source', audioStart, real_start_time)
 # Add screen share tracks
