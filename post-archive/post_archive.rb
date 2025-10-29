@@ -525,6 +525,7 @@ mediapackage = ''
 deskshareStart = []           # Array of timestamps
 webcamStart = []              # Array of hashes[filename, timestamp]
 audioStart = []               # Array of hashes[filename, timestamp]
+liveKitaudioStart = []        # Array of hashes[filename, timestamp] // needed for BBB 3 and above, replaces audioStart
 recordingStart = []           # Array of timestamps
 recordingStop = []            # Array of timestamps
 presentationSlidesStart = []  # Array of hashes[filename, timestamp, presentationName]
@@ -586,8 +587,8 @@ end
 deskshareStart = parseTimeStamps(doc, 'StartWebRTCDesktopShareEvent', deskshareStart, DESKSHARE_PATH)
 # Get webcam share start timestamps
 webcamStart = parseTimeStamps(doc, 'StartWebRTCShareEvent', webcamStart, VIDEO_PATH)
-# Get audio recording start timestamps
-liveKitaudioStart = parseTimeStamps(doc, 'AudioTrackPublishedEvent', audioStart, AUDIO_PATH)
+# Get audio recording start timestamps for bbb version 3+
+liveKitaudioStart = parseTimeStamps(doc, 'AudioTrackPublishedEvent', liveKitaudioStart, AUDIO_PATH)
 # Get audio recording start timestamps
 audioStart = parseTimeStamps(doc, 'StartRecordingEvent', audioStart, AUDIO_PATH)
 # Get cut marks
@@ -632,7 +633,8 @@ else
   end
 end
 
-# Add audio tracks (Likely to be only one track)
+# Add audio tracks. With bbb verson 3+ many audio snippets will be created
+# At least one for every participant and then they are also split up
 tracks = collectFileInformation(tracks, 'presentation/source', liveKitaudioStart, real_start_time)
 # Add audio tracks (Likely to be only one track)
 tracks = collectFileInformation(tracks, 'presentation/source', audioStart, real_start_time)
