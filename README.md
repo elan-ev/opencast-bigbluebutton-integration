@@ -24,7 +24,7 @@ For the installation and configuration on your BigBlueButton servers you can als
 
 ## Opencast Metadata and Parameters
 
-You can pass meeting metadata and other parameters to Opencast through the [create-API-call](https://docs.bigbluebutton.org/dev/api.html#create) from BigBlueButton.
+You can pass meeting metadata and other parameters to Opencast through the [create-API-call](https://docs.bigbluebutton.org/development/api/#get-post-create) from BigBlueButton.
 This metadata should then later appear in the Opencast recordings.
 The followings lists illustrate which metadata can be passed.
 
