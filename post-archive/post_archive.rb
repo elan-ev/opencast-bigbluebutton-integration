@@ -361,6 +361,18 @@ def parseChat(doc, chatFilePath, realStartTime, recordingStart, recordingStop)
   displayMessageTimeMax = 3  # seconds
   chatMessages = []
 
+  # Build lookup table: userId -> display name
+  participants = {}
+
+  doc.xpath("//event[@eventname='ParticipantJoinEvent']").each do |node|
+    user_id = node.at_xpath("./userId")&.text
+    name    = node.at_xpath("./name")&.text
+
+    next unless user_id && name
+
+    participants[user_id] = name
+  end
+
   # Gather messages
   chatEvents = doc.xpath("//event[@eventname='PublicChatEvent']")
 
@@ -371,8 +383,19 @@ def parseChat(doc, chatFilePath, realStartTime, recordingStart, recordingStop)
       chatTimestamp = node.at_xpath("timestampUTC").content.to_i
 
       if (chatTimestamp >= recordStartStamp.to_i and chatTimestamp <= recordStopStamp.to_i)
-        chatSender = node.xpath(".//sender")[0].text()
-        chatMessage =  node.xpath(".//message")[0].text()
+        chatSender =
+          node.at_xpath("./sender")&.text ||
+          participants[node.at_xpath("./senderId")&.text] ||
+          ""
+
+        message_node = node.at_xpath("./message")
+        next unless message_node
+
+        chatMessage = Nokogiri::HTML::DocumentFragment
+          .parse(message_node.inner_html)
+          .text
+          .strip
+
         chatStart = Time.at((chatTimestamp - realStartTime) / 1000.0) #.utc.strftime(TIME_FORMAT)
         #chatEnd = Time.at((chatTimestamp - realStartTime) / 1000.0) + 2
         #chatEnd = chatEnd.utc.strftime(TIME_FORMAT)
