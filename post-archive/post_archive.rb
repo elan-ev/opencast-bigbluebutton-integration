@@ -519,8 +519,8 @@ end
 meeting_id = opts[:meeting_id]
 
 archived_files = "/var/bigbluebutton/recording/raw/#{meeting_id}"
-meeting_metadata = BigBlueButton::Events.get_meeting_metadata("#{archived_files}/events.xml")
-xml_path = archived_files +"/events.xml"
+xml_path = File.join(archived_files, "events.xml")
+meeting_metadata = BigBlueButton::Events.get_meeting_metadata(xml_path)
 BigBlueButton.logger.info("Series id: #{meeting_metadata["opencast-dc-ispartof"]}")
 
 if ($config.dig(:miscellaneous, :skipProcessingIfNoSeriesIdSet))
