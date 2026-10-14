@@ -2,6 +2,11 @@ require 'nokogiri'        #XML-Parser
 
 module OcUtil
 
+  #
+  # Raised if a request to Opencast fails
+  #
+  class RequestError < StandardError; end
+
   def self.private_module_function(name)   #:nodoc:
     module_function name
     private_class_method name
@@ -76,6 +81,7 @@ module OcUtil
   # payload: information necessary for the request, hash
   #
   # return: The web request response
+  # raises: RequestError if the request fails
   #
   def requestIngestAPI(opencast, method, url, timeout, payload, additionalErrorMessage="")
     begin
@@ -87,16 +93,11 @@ module OcUtil
         :timeout => timeout,
         :payload => payload
       ).execute
-    rescue RestClient::Exception => e
-      BigBlueButton.logger.error(" A problem occured for request: #{url}")
-      BigBlueButton.logger.info( e)
-      BigBlueButton.logger.info( e.http_body)
-      BigBlueButton.logger.info( additionalErrorMessage)
-      exit 1
     rescue => e
-      BigBlueButton.logger.error("An unknown problem occured for request: #{url}")
-      BigBlueButton.logger.info(e)
-      exit 1
+      message = ["A problem occured for request #{url}: #{e.class}: #{e.message}"]
+      message.push(e.http_body.to_s) if e.is_a?(RestClient::Exception)
+      message.push(additionalErrorMessage) unless additionalErrorMessage.to_s.empty?
+      raise RequestError, message.join("\n")
     ensure
       # Close files passed as request bodies
       payload.each_value { |value| value.close if value.is_a?(File) && !value.closed? } if payload.is_a?(Hash)

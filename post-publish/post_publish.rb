@@ -37,6 +37,15 @@ logger = Logger.new("/var/log/bigbluebutton/post_publish.log", 'weekly' )
 logger.level = Logger::INFO
 BigBlueButton.logger = logger
 
+# Log errors that abort the script, e.g. failed requests to Opencast.
+# The script still exits with a non-zero status.
+at_exit do
+  error = $!
+  next if error.nil? || error.is_a?(SystemExit)
+  BigBlueButton.logger.error(" #{error.class}: #{error.message}")
+  BigBlueButton.logger.error(error.backtrace.join("\n")) unless error.is_a?(OcUtil::RequestError)
+end
+
 ### Load configuration begin
 
 # Define default config values
@@ -99,7 +108,7 @@ real_start_time, real_end_time = OcUtil::getRealStartEndTimes(doc)
 DEFAULT_REQUEST_TIMEOUT = 10                                  # Http request timeout in seconds
 START_WORKFLOW_REQUEST_TIMEOUT = 6000                         # Specific timeout; Opencast runs MediaInspector on every file, which can take quite a while
 # Keep temporary files out of the published folder, which may be served publicly.
-# Removed on any exit, including aborts in OcUtil::requestIngestAPI.
+# Removed on any exit, including failed requests to Opencast.
 TMP_PATH = Dir.mktmpdir("opencast-post-publish-")
 at_exit { FileUtils.rm_rf(TMP_PATH) }
 ACL_PATH = File.join(TMP_PATH, "acl.xml")

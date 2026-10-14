@@ -51,6 +51,15 @@ logger = Logger.new("/var/log/bigbluebutton/post_archive.log", 'weekly' )
 logger.level = Logger::INFO
 BigBlueButton.logger = logger
 
+# Log errors that abort the script, e.g. failed requests to Opencast.
+# The script still exits with a non-zero status.
+at_exit do
+  error = $!
+  next if error.nil? || error.is_a?(SystemExit)
+  BigBlueButton.logger.error(" #{error.class}: #{error.message}")
+  BigBlueButton.logger.error(error.backtrace.join("\n")) unless error.is_a?(OcUtil::RequestError)
+end
+
 # Parse configuration from config file
 $config = TomlRB.load_file(__dir__ + '/post_archive_config.toml', symbolize_keys: true)
 
