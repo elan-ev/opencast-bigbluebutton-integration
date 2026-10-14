@@ -727,78 +727,39 @@ mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config
                  #:body => File.open(File.join(archived_files, "cutting.json"), 'rb')})
 
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
-# Add Shared Notes
-if ($config.dig(:addFiles, :sharedNotesEtherpadAsAttachment) && File.file?(File.join(SHARED_NOTES_PATH, "notes.etherpad")))
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
-                  :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
-                  {:mediaPackage => mediapackage,
-                  :flavor => "etherpad/sharednotes",
-                  :body => File.open(File.join(SHARED_NOTES_PATH, "notes.etherpad"), 'rb') })
-  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
-else
-  BigBlueButton.logger.info( "Adding Shared notes is either disabled or the etherpad was not found, skipping adding Shared Notes Etherpad.")
+# Add attachments: [description, enabled, path, flavor]
+attachments = [
+  ["Shared Notes Etherpad", $config.dig(:addFiles, :sharedNotesEtherpadAsAttachment),
+    File.join(SHARED_NOTES_PATH, "notes.etherpad"), "etherpad/sharednotes"],
+  ["Shared Notes HTML", $config.dig(:addFiles, :sharedNotesHmtlAsAttachment),
+    File.join(SHARED_NOTES_PATH, "notes.html"), "html/sharednotes"],
+  ["Shared Notes PDF", $config.dig(:addFiles, :sharedNotesPdfAsAttachment),
+    File.join(SHARED_NOTES_PATH, "notes.pdf"), "pdf/sharednotes"],
+  ["Chat as subtitles", $config.dig(:addFiles, :chatAsSubtitleAttachment),
+    CHAT_PATH, "captions/vtt+en"],
+]
+presentationSlidesStart.map { |item| item["presentationName"] }.uniq.each do |presentationName|
+  attachments.push(["Presentation #{presentationName} as PDF", $config.dig(:addFiles, :presentationsAsPdf),
+    File.join(PRESENTATION_PATH, presentationName, presentationName + ".pdf"), "presentation/pdf"])
 end
-if ($config.dig(:addFiles, :sharedNotesHmtlAsAttachment) && File.file?(File.join(SHARED_NOTES_PATH, "notes.html")))
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
-                  :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
-                  {:mediaPackage => mediapackage,
-                  :flavor => "html/sharednotes",
-                  :body => File.open(File.join(SHARED_NOTES_PATH, "notes.html"), 'rb') })
-else
-  BigBlueButton.logger.info( "No HTML source for shared notes found or disabled.")
-end
-if ($config.dig(:addFiles, :sharedNotesPdfAsAttachment) && File.file?(File.join(SHARED_NOTES_PATH, "notes.pdf")))
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
-                  :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
-                  {:mediaPackage => mediapackage,
-                  :flavor => "pdf/sharednotes",
-                  :body => File.open(File.join(SHARED_NOTES_PATH, "notes.pdf"), 'rb') })
-else
-  BigBlueButton.logger.info( "No PDF source for shared notes found or disabled.")
-end
+attachments.push(["ACL", true, ACL_PATH, "security/xacml+episode"])
 
-# Add Chat as subtitles
-if ($config.dig(:addFiles, :chatAsSubtitleAttachment) && File.file?(CHAT_PATH))
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
-                  :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
-                  {:mediaPackage => mediapackage,
-                  :flavor => "captions/vtt+en",
-                  :body => File.open(CHAT_PATH, 'rb') })
-  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
-else
-  BigBlueButton.logger.info( "Adding Chat as subtitles is either disabled or there was no chat, skipping adding Chat as subtitles.")
-end
-# Add presentations
-if ($config.dig(:addFiles, :presentationsAsPdf))
-  presentationNames = presentationSlidesStart.map{|item| item["presentationName"]}.uniq
-  presentationNames.each do |presentationName|
-    presentationFilePath = File.join(PRESENTATION_PATH, presentationName, presentationName + ".pdf")
-    if (File.exist?(presentationFilePath))
-      mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+attachments.each do |description, enabled, path, flavor|
+  if !enabled
+    BigBlueButton.logger.info( "Adding #{description} is disabled, skipping.")
+  elsif !File.file?(path)
+    BigBlueButton.logger.info( "#{description} not found at #{path}, skipping.")
+  else
+    mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                     :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
                     {:mediaPackage => mediapackage,
-                    :flavor => "presentation/pdf",
-                    :body => File.open(presentationFilePath, 'rb') })
-      BigBlueButton.logger.info( "Added presentation: #{presentationFilePath}")
-    else
-      BigBlueButton.logger.info( "Could not add: #{presentationFilePath}. File does not exist.")
-    end
+                    :flavor => flavor,
+                    :body => File.open(path, 'rb') })
+    BigBlueButton.logger.info( "Added #{description}")
   end
-  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
-else
-  BigBlueButton.logger.info( "Adding Presentations as PDFs is disabled, skipping adding Presentations as PDFs.")
 end
-# Add ACL
-if (File.file?(ACL_PATH))
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
-                  :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
-                  {:mediaPackage => mediapackage,
-                  :flavor => "security/xacml+episode",
-                  :body => File.open(ACL_PATH, 'rb') })
-  BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
-else
-  BigBlueButton.logger.info( "No ACL found, skipping adding ACL.")
-end
+BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
+
 # Ingest and start workflow
 response = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                 :post, '/ingest/ingest/' + $config.dig(:opencast, :workflow), START_WORKFLOW_REQUEST_TIMEOUT,
