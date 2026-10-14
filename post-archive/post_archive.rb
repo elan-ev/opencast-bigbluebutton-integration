@@ -624,15 +624,10 @@ end
 # Tracks are ingested on a per file basis, so iterate through all files that should be send
 #
 
-# Add webcam tracks
-if meeting_metadata["opencast-add-webcams"].nil?
-  if ($config.dig(:addFiles, :webcamTracks))
-    tracks = collectFileInformation(tracks, 'presenter/source', webcamStart, real_start_time)
-  end
-else
-  if ($config.dig(:addFiles, :webcamTracks) && meeting_metadata["opencast-add-webcams"].to_s == 'true')
-    tracks = collectFileInformation(tracks, 'presenter/source', webcamStart, real_start_time)
-  end
+# Add webcam tracks, if enabled in the config and not disabled by the meeting metadata
+addWebcams = meeting_metadata["opencast-add-webcams"]
+if ($config.dig(:addFiles, :webcamTracks) && (addWebcams.nil? || addWebcams.to_s == 'true'))
+  tracks = collectFileInformation(tracks, 'presenter/source', webcamStart, real_start_time)
 end
 
 # Add audio tracks. With bbb verson 3+ many audio snippets will be created
