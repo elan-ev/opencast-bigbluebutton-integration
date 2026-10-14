@@ -53,15 +53,15 @@ config_defaults = {
 
 # Parse configuration from config file
 $config = TomlRB.load_file(__dir__ + '/post_publish_config.toml', symbolize_keys: true)
-BigBlueButton.logger.info("Opencast Server: " + $config.dig(:opencast, :server))
 
 # Check for essential values
-$config[:opencast].each do |oc_key, oc_value|
-  if oc_value.to_s.empty?
-    BigBlueButton.logger.error(" The config key " + oc_key + "is not set. Aborting...")
+[:server, :user, :password, :workflow].each do |oc_key|
+  if $config.dig(:opencast, oc_key).to_s.empty?
+    BigBlueButton.logger.error(" The config key opencast.#{oc_key} is not set. Aborting...")
     exit 1
   end
 end
+BigBlueButton.logger.info("Opencast Server: #{$config.dig(:opencast, :server)}")
 
 # Set defaults in case they were not configured
 # Merge per section, so that a configured section does not drop the defaults of its unset keys
