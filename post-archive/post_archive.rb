@@ -650,9 +650,10 @@ tracks = collectFileInformation(tracks, 'presentation/source', deskshareStart, r
 tracks = collectFileInformation(tracks, 'presentation/source', presentationSlidesStart, real_start_time)
 
 if(tracks.length == 0)
-  BigBlueButton.logger.warn(" There are no files, nothing to do here")
-  cleanup(TMP_PATH, meeting_id)
-  exit 0
+  # Do NOT clean up raw recording data, nothing has been sent to Opencast
+  BigBlueButton.logger.error(" No files to ingest found for recording #{meeting_id}. Raw recording data will not be cleaned up. Aborting...")
+  FileUtils.rm_rf(TMP_PATH)
+  exit 1
 end
 
 # Sort tracks in ascending order by their startTime, as is required by PartialImportWOH
