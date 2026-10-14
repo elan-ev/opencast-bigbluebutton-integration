@@ -139,23 +139,25 @@ module OcDublincore
     end
 
     # Check for existence in Opencast
-    existsInOpencast = true
+    # Only a 404 means the identifier is free. On any other error it is unknown whether the
+    # event exists, so do not risk overwriting it.
     begin
-      response = RestClient::Request.new(
+      RestClient::Request.new(
         :method => :get,
         :url => oc_server + "/api/events/" + identifier,
         :user => oc_user,
         :password => oc_password,
+        :timeout => 10,
       ).execute
-    rescue RestClient::Exception => e
-      existsInOpencast = false
-    end
-    if existsInOpencast
-      BigBlueButton.logger.info( "OC_DUBLINCORE: The given identifier <#{identifier}> already exists within Opencast. Will be using generated UUID instead.")
+    rescue RestClient::NotFound
+      return identifier
+    rescue => e
+      BigBlueButton.logger.warn(" OC_DUBLINCORE: Could not check whether the given identifier <#{identifier}> already exists within Opencast (#{e}). Will be using generated UUID instead.")
       return nil
     end
 
-    return identifier
+    BigBlueButton.logger.info( "OC_DUBLINCORE: The given identifier <#{identifier}> already exists within Opencast. Will be using generated UUID instead.")
+    return nil
   end
   private_module_function :checkEventIdentifier
 
