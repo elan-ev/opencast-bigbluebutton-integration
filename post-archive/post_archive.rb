@@ -72,28 +72,56 @@ end
 ### Load configuration end
 
 #
+# Parse TimeStamps - Start times of all existing files for a given event
+#
+# doc: file handle
+# eventName: name of the xml tag attribute 'eventName', string
+# block: takes an event node, returns a hash with at least "filepath" and "filename"
+#
+# return: array of the hashes from the block with the added "timestamp", only for existing files
+#
+def parseTimeStamps(doc, eventName)
+  doc.xpath("//event[@eventname='#{eventName}']").filter_map do |item|
+    newItem = yield(item)
+    newItem["timestamp"] = item.at_xpath("timestampUTC").content.to_i
+    newItem if File.exist?(File.join(newItem["filepath"], newItem["filename"]))
+  end
+end
+
+#
 # Parse TimeStamps - All files and start times for a given event
 #
 # doc: file handle
 # eventName: name of the xml tag attribute 'eventName', string
-# resultArray: Where results will be appended to, array
 # filePath: Path to the folder were the file related to the event will reside
 #
-# return: resultArray with appended hashes
+# return: array of hashes[filename, timestamp, filepath]
 #
-def parseTimeStamps(doc, eventName, resultArray, filePath)
-  doc.xpath("//event[@eventname='#{eventName}']").each do |item|
-    newItem = Hash.new
-    newItem["filename"] = item.at_xpath("filename").content.split('/').last
-    newItem["timestamp"] = item.at_xpath("timestampUTC").content.to_i
-    newItem["filepath"] = filePath
-    if !File.exist?(File.join(newItem["filepath"], newItem["filename"]))
-      next
-    end
-    resultArray.push(newItem)
+def parseFileTimeStamps(doc, eventName, filePath)
+  return parseTimeStamps(doc, eventName) do |item|
+    { "filename" => item.at_xpath("filename").content.split('/').last,
+      "filepath" => filePath }
   end
+end
 
-  return resultArray
+#
+# Parse TimeStamps - All files, start times and presentation for a given slide
+#
+# doc: file handle
+# eventName: name of the xml tag attribute 'eventName', string
+# filePath: Path to the folder were the presentations reside
+#
+# return: array of hashes[filename, timestamp, filepath, presentationName]
+#
+def parseSlideTimeStamps(doc, eventName, filePath)
+  return parseTimeStamps(doc, eventName) do |item|
+    presentationName = item.at_xpath("presentationName").content
+    # Add 1 to fix index, assume slide 1 if none is given
+    slide = item.at_xpath("slide") ? item.at_xpath("slide").content.to_i + 1 : 1
+    { "filename" => "slide#{slide}.svg",
+      "filepath" => File.join(filePath, presentationName, "svgs"),
+      "presentationName" => presentationName }
+  end
 end
 
 #
@@ -101,13 +129,14 @@ end
 #
 # doc: file handle
 # eventName: name of the xml tag attribute 'eventName', string
-# recordingStart: Where results will be appended to, array
-# recordingStop: Where results will be appended to, array
+# real_end_time: End time of the conference, used if the recording was not stopped
 #
 # return: recordingStart, recordingStop arrays with timestamps
 #
-def parseTimeStampsRecording(doc, eventName, recordingStart, recordingStop, real_end_time)
-  # Parse timestamps for Recording
+def parseTimeStampsRecording(doc, eventName, real_end_time)
+  recordingStart = []
+  recordingStop = []
+
   # Pair each start with the next stop, ignoring repeated starts and stops without a start
   isRecording = false
   doc.xpath("//event[@eventname='#{eventName}']").each do |item|
@@ -129,36 +158,6 @@ def parseTimeStampsRecording(doc, eventName, recordingStart, recordingStop, real
   end
 
   return recordingStart, recordingStop
-end
-
-#
-# Parse TimeStamps - All files, start times and presentation for a given slide
-#
-# doc: file handle
-# eventName: name of the xml tag attribute 'eventName', string
-# resultArray: Where results will be appended to, array
-# filePath: Path to the folder were the file related to the event will reside
-#
-# return: resultArray with appended hashes
-#
-def parseTimeStampsPresentation(doc, eventName, resultArray, filePath)
-  doc.xpath("//event[@eventname='#{eventName}']").each do |item|
-    newItem = Hash.new
-    if(item.at_xpath("slide"))
-      newItem["filename"] = "slide#{item.at_xpath("slide").content.to_i + 1}.svg" # Add 1 to fix index
-    else
-      newItem["filename"] = "slide1.svg"  # Assume slide 1
-    end
-    newItem["timestamp"] = item.at_xpath("timestampUTC").content.to_i
-    newItem["filepath"] = File.join(filePath, item.at_xpath("presentationName").content, "svgs")
-    newItem["presentationName"] = item.at_xpath("presentationName").content
-    if !File.exist?(File.join(newItem["filepath"], newItem["filename"]))
-      next
-    end
-    resultArray.push(newItem)
-  end
-
-  return resultArray
 end
 
 #
@@ -532,13 +531,6 @@ end
 
 # Variables
 mediapackage = ''
-deskshareStart = []           # Array of timestamps
-webcamStart = []              # Array of hashes[filename, timestamp]
-audioStart = []               # Array of hashes[filename, timestamp]
-liveKitaudioStart = []        # Array of hashes[filename, timestamp] // needed for BBB 3 and above, replaces audioStart
-recordingStart = []           # Array of timestamps
-recordingStop = []            # Array of timestamps
-presentationSlidesStart = []  # Array of hashes[filename, timestamp, presentationName]
 tracks = []                   # Array of hashes[flavor, starttime, path]
 
 # Constants
@@ -594,18 +586,18 @@ if (real_end_time - real_start_time) < ($config.dig(:miscellaneous, :minimalDura
   exit 0
 end
 # Get screen share start timestamps
-deskshareStart = parseTimeStamps(doc, 'StartWebRTCDesktopShareEvent', deskshareStart, DESKSHARE_PATH)
+deskshareStart = parseFileTimeStamps(doc, 'StartWebRTCDesktopShareEvent', DESKSHARE_PATH)
 # Get webcam share start timestamps
-webcamStart = parseTimeStamps(doc, 'StartWebRTCShareEvent', webcamStart, VIDEO_PATH)
+webcamStart = parseFileTimeStamps(doc, 'StartWebRTCShareEvent', VIDEO_PATH)
 # Get audio recording start timestamps for bbb version 3+
-liveKitaudioStart = parseTimeStamps(doc, 'AudioTrackPublishedEvent', liveKitaudioStart, AUDIO_PATH)
+liveKitaudioStart = parseFileTimeStamps(doc, 'AudioTrackPublishedEvent', AUDIO_PATH)
 # Get audio recording start timestamps
-audioStart = parseTimeStamps(doc, 'StartRecordingEvent', audioStart, AUDIO_PATH)
+audioStart = parseFileTimeStamps(doc, 'StartRecordingEvent', AUDIO_PATH)
 # Get cut marks
-recordingStart, recordingStop = parseTimeStampsRecording(doc, 'RecordStatusEvent', recordingStart, recordingStop, real_end_time)
+recordingStart, recordingStop = parseTimeStampsRecording(doc, 'RecordStatusEvent', real_end_time)
 # Get presentation slide start stamps
-presentationSlidesStart = parseTimeStampsPresentation(doc, 'SharePresentationEvent', presentationSlidesStart, PRESENTATION_PATH) # Grab a timestamp for the beginning
-presentationSlidesStart = parseTimeStampsPresentation(doc, 'GotoSlideEvent', presentationSlidesStart, PRESENTATION_PATH) # Grab timestamps from Goto events
+presentationSlidesStart = parseSlideTimeStamps(doc, 'SharePresentationEvent', PRESENTATION_PATH) + # Grab a timestamp for the beginning
+                          parseSlideTimeStamps(doc, 'GotoSlideEvent', PRESENTATION_PATH)          # Grab timestamps from Goto events
 
 # Opencasts addPartialTrack cannot handle files without a duration,
 # therefore images need to be converted to videos.
