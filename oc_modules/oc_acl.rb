@@ -51,29 +51,41 @@ module OcAcl
     acl_data = []
 
     # Read from global, configured-by-user variable
-    defaultReadRoles.to_s.split(",").each do |role|
+    splitList(defaultReadRoles).each do |role|
       acl_data.push( { :user => role, :permission => "read" } )
     end
-    defaultWriteRoles.to_s.split(",").each do |role|
+    splitList(defaultWriteRoles).each do |role|
       acl_data.push( { :user => role, :permission => "write" } )
     end
 
     # Read from Metadata
-    metadata[acl_metadata_definition[:readRoles]].to_s.split(",").each do |role|
+    splitList(metadata[acl_metadata_definition[:readRoles]]).each do |role|
       acl_data.push( { :user => role, :permission => "read" } )
     end
-    metadata[acl_metadata_definition[:writeRoles]].to_s.split(",").each do |role|
+    splitList(metadata[acl_metadata_definition[:writeRoles]]).each do |role|
       acl_data.push( { :user => role, :permission => "write" } )
     end
 
-    metadata[acl_metadata_definition[:userIds]].to_s.split(",").each do |userId|
+    splitList(metadata[acl_metadata_definition[:userIds]]).each do |userId|
       acl_data.push( { :user => "ROLE_USER_#{userId}", :permission => "read" } )
       acl_data.push( { :user => "ROLE_USER_#{userId}", :permission => "write" } )
     end
 
-    return acl_data
+    return acl_data.uniq
   end
   private_module_function :parseAclMetadata
+
+  #
+  # Splits a comma separated list, ignoring surrounding whitespace and empty entries
+  #
+  # list: string, e.g. "ROLE_A, ROLE_B"
+  #
+  # return: array of strings
+  #
+  def splitList(list)
+    return list.to_s.split(",").map(&:strip).reject(&:empty?)
+  end
+  private_module_function :splitList
 
   def parseEpisodeAclMetadata(metadata, defaultReadRoles = "", defaultWriteRoles = "")
     return parseAclMetadata(metadata, getAclMetadataDefinition(), defaultReadRoles, defaultWriteRoles)
