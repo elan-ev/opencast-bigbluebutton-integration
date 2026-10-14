@@ -24,6 +24,8 @@ require "shellwords"
 require "optimist"
 require 'nokogiri'        #XML-Parser
 require 'toml-rb'
+require 'tmpdir'
+require 'fileutils'
 require File.expand_path('../../../lib/recordandplayback', __FILE__)
 
 require_relative 'oc_modules/oc_dublincore'
@@ -99,7 +101,11 @@ real_start_time, real_end_time = OcUtil::getRealStartEndTimes(doc)
 # Variables
 DEFAULT_REQUEST_TIMEOUT = 10                                  # Http request timeout in seconds
 START_WORKFLOW_REQUEST_TIMEOUT = 6000                         # Specific timeout; Opencast runs MediaInspector on every file, which can take quite a while
-ACL_PATH = File.join(published_presentation_files, "acl.xml")
+# Keep temporary files out of the published folder, which may be served publicly.
+# Removed on any exit, including aborts in OcUtil::requestIngestAPI.
+TMP_PATH = Dir.mktmpdir("opencast-post-publish-")
+at_exit { FileUtils.rm_rf(TMP_PATH) }
+ACL_PATH = File.join(TMP_PATH, "acl.xml")
 
 BigBlueButton.logger.info( "Prepare Metadata for [#{meeting_id}]...")
 
@@ -199,10 +205,5 @@ response = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig
                 { :mediaPackage => mediapackage },
                 "LOG ERROR Aborting ingest with BBB id #{meeting_id} and OC id #{mediapackageId}")
 BigBlueButton.logger.info( "Upload for [#{meeting_id}] ends")
-
-# Remove temporary files
-if (File.file?(ACL_PATH))
-  File.delete(ACL_PATH)
-end
 
 exit 0
