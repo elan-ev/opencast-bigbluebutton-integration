@@ -20,10 +20,11 @@
 # with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 #
 
-require "shellwords"
 require "optimist"
 require 'nokogiri'        #XML-Parser
 require 'toml-rb'
+require 'tmpdir'
+require 'fileutils'
 require File.expand_path('../../../lib/recordandplayback', __FILE__)
 
 require_relative 'oc_modules/oc_dublincore'
@@ -35,6 +36,15 @@ require_relative 'oc_modules/oc_util'
 logger = Logger.new("/var/log/bigbluebutton/post_publish.log", 'weekly' )
 logger.level = Logger::INFO
 BigBlueButton.logger = logger
+
+# Log errors that abort the script, e.g. failed requests to Opencast.
+# The script still exits with a non-zero status.
+at_exit do
+  error = $!
+  next if error.nil? || error.is_a?(SystemExit)
+  BigBlueButton.logger.error("#{error.class}: #{error.message}")
+  BigBlueButton.logger.error(error.backtrace.join("\n")) unless error.is_a?(OcUtil::RequestError)
+end
 
 ### Load configuration begin
 
@@ -49,22 +59,35 @@ config_defaults = {
   miscellaneous: {
     createNewSeriesIfItDoesNotYetExist: false,
   },
+  logging: {
+    level: "info",
+  },
 }
 
 # Parse configuration from config file
 $config = TomlRB.load_file(__dir__ + '/post_publish_config.toml', symbolize_keys: true)
-BigBlueButton.logger.info("Opencast Server: " + $config.dig(:opencast, :server))
 
 # Check for essential values
-$config[:opencast].each do |oc_key, oc_value|
-  if oc_value.to_s.empty?
-    BigBlueButton.logger.error(" The config key " + oc_key + "is not set. Aborting...")
+[:server, :user, :password, :workflow].each do |oc_key|
+  if $config.dig(:opencast, oc_key).to_s.empty?
+    BigBlueButton.logger.error("The config key opencast.#{oc_key} is not set. Aborting...")
     exit 1
   end
 end
+BigBlueButton.logger.info("Opencast Server: #{$config.dig(:opencast, :server)}")
 
 # Set defaults in case they were not configured
-$config = config_defaults.merge($config)
+# Merge per section, so that a configured section does not drop the defaults of its unset keys
+$config = config_defaults.merge($config) do |_section, defaults, configured|
+  defaults.is_a?(Hash) && configured.is_a?(Hash) ? defaults.merge(configured) : configured
+end
+
+# Set the log level, e.g. "debug" to also log the full data sent to Opencast
+begin
+  logger.level = $config.dig(:logging, :level)
+rescue ArgumentError
+  BigBlueButton.logger.warn("Invalid log level #{$config.dig(:logging, :level)}, using info")
+end
 
 
 #
@@ -76,19 +99,19 @@ opts = Optimist::options do
 end
 meeting_id = opts[:meeting_id]
 format = opts[:format]
+logger.progname = meeting_id
+BigBlueButton.logger.info("Starting ingest of recording #{meeting_id}")
 
 published_presentation_files = "/var/bigbluebutton/published/presentation/#{meeting_id}"
 published_video_files = "/var/bigbluebutton/published/video/#{meeting_id}"
 meeting_metadata = BigBlueButton::Events.get_meeting_metadata("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml")
 
 # Get events file handle
-doc = ''
-if(File.file?("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml"))
-  doc = Nokogiri::XML(File.open("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml"))
-else
-  BigBlueButton.logger.error(": NO EVENTS.XML for recording" + meeting_id + "! Nothing to parse, aborting...")
+unless File.file?("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml")
+  BigBlueButton.logger.error("No events.xml found for recording #{meeting_id}, nothing to parse. Aborting...")
   exit 1
 end
+doc = Nokogiri::XML(File.read("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml"))
 
 # Get conference start and end timestamps in ms
 real_start_time, real_end_time = OcUtil::getRealStartEndTimes(doc)
@@ -96,9 +119,13 @@ real_start_time, real_end_time = OcUtil::getRealStartEndTimes(doc)
 # Variables
 DEFAULT_REQUEST_TIMEOUT = 10                                  # Http request timeout in seconds
 START_WORKFLOW_REQUEST_TIMEOUT = 6000                         # Specific timeout; Opencast runs MediaInspector on every file, which can take quite a while
-ACL_PATH = File.join(published_presentation_files, "acl.xml")
+# Keep temporary files out of the published folder, which may be served publicly.
+# Removed on any exit, including failed requests to Opencast.
+TMP_PATH = Dir.mktmpdir("opencast-post-publish-")
+at_exit { FileUtils.rm_rf(TMP_PATH) }
+ACL_PATH = File.join(TMP_PATH, "acl.xml")
 
-BigBlueButton.logger.info( "Prepare Metadata for [#{meeting_id}]...")
+BigBlueButton.logger.info("Preparing metadata...")
 
 # Check parameters sent via metadata
 if meeting_metadata["opencast-add-webcams"].nil?
@@ -107,9 +134,9 @@ end
 
 # Create metadata file dublincore
 dc_data = OcDublincore::parseDcMetadata(meeting_metadata, startTime: real_start_time, stopTime: real_end_time,
-  server: $config.dig(:opencast, :server), user: $config.dig(:opencast, :user), password: $config.dig(:opencast, :password))
+  opencast: $config[:opencast])
 dublincoreXML = OcDublincore::createDublincore(dc_data)
-BigBlueButton.logger.info( "Dublincore: \n" + dublincoreXML.to_s)
+BigBlueButton.logger.debug("Dublincore: \n#{dublincoreXML}")
 
 # Create ACLs at path
 aclData = OcAcl::parseEpisodeAclMetadata(meeting_metadata, $config.dig(:defaultRoles, :readPerm), $config.dig(:defaultRoles, :writePerm))
@@ -119,22 +146,22 @@ end
 
 # Create series with given seriesId, if such a series does not yet exist
 if ($config.dig(:miscellaneous, :createNewSeriesIfItDoesNotYetExist))
-  OcAcl::createSeries(meeting_metadata, $config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password), $config.dig(:defaultRoles, :seriesReadPerm), $config.dig(:defaultRoles, :seriesWritePerm))
+  OcAcl::createSeries(meeting_metadata, $config[:opencast], $config.dig(:defaultRoles, :seriesReadPerm), $config.dig(:defaultRoles, :seriesWritePerm))
 end
 
 #
 # Create a mediapackage and ingest it
 #
 
-BigBlueButton.logger.info( "Upload Recording for [#{meeting_id}]...")
+BigBlueButton.logger.info("Uploading recording...")
 
 # Create Mediapackage
 if !dc_data[:identifier].to_s.empty?
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+  mediapackage = OcUtil::requestIngestAPI($config[:opencast],
     :put, '/ingest/createMediaPackageWithID/' + dc_data[:identifier], DEFAULT_REQUEST_TIMEOUT, {}
   )
 else
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+  mediapackage = OcUtil::requestIngestAPI($config[:opencast],
     :get, '/ingest/createMediaPackage', DEFAULT_REQUEST_TIMEOUT, {}
   )
 end
@@ -142,29 +169,30 @@ end
 # Get mediapackageId for debugging
 doc = Nokogiri::XML(mediapackage)
 mediapackageId = doc.xpath("/*")[0].attr('id')
+BigBlueButton.logger.info("Created mediapackage #{mediapackageId}")
 
 # Add Track
-BigBlueButton.logger.info( "Playback format: #{format}")
+BigBlueButton.logger.info("Playback format: #{format}")
 
 if (format == 'video')
-  BigBlueButton.logger.info( "Found video")
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+  BigBlueButton.logger.info("Found video")
+  mediapackage = OcUtil::requestIngestAPI($config[:opencast],
                   :post, '/ingest/addTrack', DEFAULT_REQUEST_TIMEOUT,
                   { :flavor => 'presentation/source',
                     :mediaPackage => mediapackage,
                     :body => File.open(published_video_files + '/video-0.m4v', 'rb') })
 else
-  if (File.exists?(published_presentation_files + '/video/webcams.webm') && meeting_metadata["opencast-add-webcams"] == 'true')
-    BigBlueButton.logger.info( "Found presenter video")
-    mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+  if (File.exist?(published_presentation_files + '/video/webcams.webm') && meeting_metadata["opencast-add-webcams"] == 'true')
+    BigBlueButton.logger.info("Found presenter video")
+    mediapackage = OcUtil::requestIngestAPI($config[:opencast],
                     :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
                     { :flavor => 'presenter/source',
                       :mediaPackage => mediapackage,
                       :body => File.open(published_presentation_files + '/video/webcams.webm', 'rb') })
   end
-  if (File.exists?(published_presentation_files + '/deskshare/deskshare.webm'))
-    BigBlueButton.logger.info( "Found presentation video")
-    mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+  if (File.exist?(published_presentation_files + '/deskshare/deskshare.webm'))
+    BigBlueButton.logger.info("Found presentation video")
+    mediapackage = OcUtil::requestIngestAPI($config[:opencast],
                     :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
                     { :flavor => 'presentation/source',
                       :mediaPackage => mediapackage,
@@ -173,33 +201,29 @@ else
 end
 
 # Add dublincore
-mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+mediapackage = OcUtil::requestIngestAPI($config[:opencast],
                 :post, '/ingest/addDCCatalog', DEFAULT_REQUEST_TIMEOUT,
                 {:mediaPackage => mediapackage,
                  :dublinCore => dublincoreXML })
 
 # Add ACL if applicable
 if (File.file?(ACL_PATH))
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+  mediapackage = OcUtil::requestIngestAPI($config[:opencast],
                   :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
                   {:mediaPackage => mediapackage,
                   :flavor => "security/xacml+episode",
                   :body => File.open(ACL_PATH, 'rb') })
 else
-  BigBlueButton.logger.info( "No ACL found, skipping adding ACL.")
+  BigBlueButton.logger.info("No ACL found, skipping adding ACL.")
 end
 
 # Ingest and start workflow
-BigBlueButton.logger.info( "Uploading...")
-response = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+response = OcUtil::requestIngestAPI($config[:opencast],
                 :post, '/ingest/ingest/' + $config.dig(:opencast, :workflow), START_WORKFLOW_REQUEST_TIMEOUT,
                 { :mediaPackage => mediapackage },
-                "LOG ERROR Aborting ingest with BBB id #{meeting_id} and OC id #{mediapackageId}")
-BigBlueButton.logger.info( "Upload for [#{meeting_id}] ends")
-
-# Remove temporary files
-if (File.file?(ACL_PATH))
-  File.delete(ACL_PATH)
-end
+                "Aborting ingest of recording #{meeting_id} with mediapackage #{mediapackageId}")
+BigBlueButton.logger.debug("Ingest response: \n#{response}")
+workflowId = Nokogiri::XML(response).root&.[]('id')
+BigBlueButton.logger.info("Ingested recording #{meeting_id} as mediapackage #{mediapackageId}, started workflow #{workflowId}")
 
 exit 0

@@ -46,34 +46,46 @@ module OcAcl
   #
   def parseAclMetadata(metadata, acl_metadata_definition, defaultReadRoles = "", defaultWriteRoles = "")
     # Cast keys to lowercase
-    metadata = OcUtil::keysLowerCase(metadata)
+    metadata = metadata.transform_keys(&:downcase)
 
     acl_data = []
 
     # Read from global, configured-by-user variable
-    defaultReadRoles.to_s.split(",").each do |role|
+    splitList(defaultReadRoles).each do |role|
       acl_data.push( { :user => role, :permission => "read" } )
     end
-    defaultWriteRoles.to_s.split(",").each do |role|
+    splitList(defaultWriteRoles).each do |role|
       acl_data.push( { :user => role, :permission => "write" } )
     end
 
     # Read from Metadata
-    metadata[acl_metadata_definition[:readRoles]].to_s.split(",").each do |role|
+    splitList(metadata[acl_metadata_definition[:readRoles]]).each do |role|
       acl_data.push( { :user => role, :permission => "read" } )
     end
-    metadata[acl_metadata_definition[:writeRoles]].to_s.split(",").each do |role|
+    splitList(metadata[acl_metadata_definition[:writeRoles]]).each do |role|
       acl_data.push( { :user => role, :permission => "write" } )
     end
 
-    metadata[acl_metadata_definition[:userIds]].to_s.split(",").each do |userId|
+    splitList(metadata[acl_metadata_definition[:userIds]]).each do |userId|
       acl_data.push( { :user => "ROLE_USER_#{userId}", :permission => "read" } )
       acl_data.push( { :user => "ROLE_USER_#{userId}", :permission => "write" } )
     end
 
-    return acl_data
+    return acl_data.uniq
   end
   private_module_function :parseAclMetadata
+
+  #
+  # Splits a comma separated list, ignoring surrounding whitespace and empty entries
+  #
+  # list: string, e.g. "ROLE_A, ROLE_B"
+  #
+  # return: array of strings
+  #
+  def splitList(list)
+    return list.to_s.split(",").map(&:strip).reject(&:empty?)
+  end
+  private_module_function :splitList
 
   def parseEpisodeAclMetadata(metadata, defaultReadRoles = "", defaultWriteRoles = "")
     return parseAclMetadata(metadata, getAclMetadataDefinition(), defaultReadRoles, defaultWriteRoles)
@@ -197,27 +209,28 @@ module OcAcl
   # Will create a new series with the given Id, if such a series does not yet exist
   # Else will try to update the ACL of the series
   #
-  # createSeriesId: string, the UID for the new series
+  # meeting_metadata: hash (string => string), contains the series id as opencast-dc-ispartof
+  # opencast: hash with OC :server, :user and :password
   #
-  def createSeries(meeting_metadata, oc_server, oc_user, oc_password, defaultSeriesRolesWithReadPerm="", defaultSeriesRolesWithWritePerm="")
+  def createSeries(meeting_metadata, opencast, defaultSeriesRolesWithReadPerm="", defaultSeriesRolesWithWritePerm="")
+    oc_server, oc_user, oc_password = opencast.to_h.values_at(:server, :user, :password)
     if !oc_server || !oc_user || !oc_password
-      BigBlueButton.logger.warn(" OC_ACL: Cannot create or update series: No credentials given.")
+      BigBlueButton.logger.warn("OC_ACL: Cannot create or update series: No credentials given.")
       return nil
     end
 
     # Cast keys to lowercase
-    meeting_metadata = OcUtil::keysLowerCase(meeting_metadata)
+    meeting_metadata = meeting_metadata.transform_keys(&:downcase)
 
     createSeriesId = meeting_metadata["opencast-dc-ispartof"]
     if (createSeriesId.to_s.empty?)
-      BigBlueButton.logger.warn(" OC_ACL: Cannot create or update series: Metadata does not contain a seriesId.")
+      BigBlueButton.logger.warn("OC_ACL: Cannot create or update series: Metadata does not contain a seriesId.")
       return
     end
 
-    BigBlueButton.logger.info( "OC_ACL: Attempting to create a new series...")
+    BigBlueButton.logger.info("OC_ACL: Attempting to create a new series...")
 
     # Acquire information about all series
-    seriesFromOc = []
     begin
       seriesFromOc = RestClient::Request.new(
         :method => :get,
@@ -231,7 +244,7 @@ module OcAcl
         }
       ).execute
     rescue RestClient::Exception => e
-      BigBlueButton.logger.warn(" Could not acquire information about series, Exception #{e}")
+      BigBlueButton.logger.warn("OC_ACL: Could not acquire information about series, Exception #{e}")
       return
     end
 
@@ -241,7 +254,7 @@ module OcAcl
       seriesFromOc = JSON.parse(seriesFromOc)
       if (seriesFromOc.length() > 0)
         seriesExists = true
-        BigBlueButton.logger.info( "OC_ACL: Series already exists")
+        BigBlueButton.logger.info("OC_ACL: Series already exists")
       end
     rescue JSON::ParserError  => e
       BigBlueButton.logger.warn("OC_ACL: Could not parse series JSON, Exception #{e}")
@@ -249,17 +262,17 @@ module OcAcl
 
     # Create Series
     if (!seriesExists)
-      BigBlueButton.logger.info( "OC_ACL: Create a new series with ID " + createSeriesId)
+      BigBlueButton.logger.info("OC_ACL: Create a new series with ID #{createSeriesId}")
       # Create Series-DC
       seriesDcData = OcDublincore::parseSeriesDcMetadata(meeting_metadata)
       seriesDublincore = OcDublincore::createDublincore(seriesDcData)
       # Create Series-ACL
       seriesAcl = createSeriesAcl(parseSeriesAclMetadata(meeting_metadata, defaultSeriesRolesWithReadPerm,
                   defaultSeriesRolesWithWritePerm))
-      BigBlueButton.logger.info( "OC_ACL: seriesAcl: " + seriesAcl.to_s)
+      BigBlueButton.logger.debug("OC_ACL: seriesAcl: #{seriesAcl}")
 
       begin
-        response = RestClient::Request.new(
+        RestClient::Request.new(
           :method => :post,
           :url => oc_server + '/series/',
           :user => oc_user,
@@ -269,15 +282,13 @@ module OcAcl
                         :override => false}
         ).execute
       rescue RestClient::Exception => e
-        BigBlueButton.logger.warn(" Something went wrong during series creation, Exception #{e}")
+        BigBlueButton.logger.warn("OC_ACL: Something went wrong during series creation, Exception #{e}")
         return
       end
 
     # Update Series ACL
     else
-      BigBlueButton.logger.info( "OC_ACL: Updating series ACL...")
-      # seriesAcl = requestIngestAPI(:get, '/series/' + createSeriesId + '/acl.xml', DEFAULT_REQUEST_TIMEOUT, {})
-      seriesAcl = []
+      BigBlueButton.logger.info("OC_ACL: Updating series ACL...")
       begin
         seriesAcl = RestClient::Request.new(
           :method => :get,
@@ -287,7 +298,7 @@ module OcAcl
           :payload => { }
         ).execute
       rescue RestClient::Exception => e
-        BigBlueButton.logger.warn(" OC_ACL: Something went wrong during series update, Exception #{e}")
+        BigBlueButton.logger.warn("OC_ACL: Something went wrong during series update, Exception #{e}")
         return
       end
       roles = parseSeriesAclMetadata(meeting_metadata, defaultSeriesRolesWithReadPerm, defaultSeriesRolesWithWritePerm)
@@ -295,7 +306,7 @@ module OcAcl
       if (roles.length > 0)
         updatedSeriesAcl = updateSeriesAcl(seriesAcl, roles)
         begin
-          response = RestClient::Request.new(
+          RestClient::Request.new(
             :method => :post,
             :url => oc_server + '/series/' + createSeriesId + '/accesscontrol',
             :user => oc_user,
@@ -304,12 +315,12 @@ module OcAcl
                           :override => false }
           ).execute
         rescue RestClient::Exception => e
-          BigBlueButton.logger.warn(" OC_ACL: Something went wrong during series update, Exception #{e}")
+          BigBlueButton.logger.warn("OC_ACL: Something went wrong during series update, Exception #{e}")
           return
         end
-        BigBlueButton.logger.info( "OC_ACL: Updated series ACL")
+        BigBlueButton.logger.info("OC_ACL: Updated series ACL")
       else
-        BigBlueButton.logger.info( "OC_ACL: Nothing to update ACL with")
+        BigBlueButton.logger.info("OC_ACL: Nothing to update ACL with")
       end
     end
   end

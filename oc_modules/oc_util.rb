@@ -2,24 +2,15 @@ require 'nokogiri'        #XML-Parser
 
 module OcUtil
 
+  #
+  # Raised if a request to Opencast fails
+  #
+  class RequestError < StandardError; end
+
   def self.private_module_function(name)   #:nodoc:
     module_function name
     private_class_method name
   end
-
-  #
-  # Helper function: Convert metadata keys to lowercase
-  # Transform_Keys is only available from ruby 2.5 onward :(
-  #metadata = metadata.transform_keys(&:downcase)
-  #
-  private def keysLowerCase(oldHash)
-    newHash = {}
-    oldHash.each do |key, value|
-      newHash["#{key.downcase}"] = oldHash[key] #.delete("#{key}")
-    end
-    return newHash
-  end
-  module_function :keysLowerCase
 
   #
   # Helper function that determines if the metadata in question exists
@@ -70,8 +61,6 @@ module OcUtil
     if node1.text != node2.text
             return false
     end
-    node1Attrs = node1.attributes
-    node2Attrs = node2.attributes
     node1Kids = node1.children
     node2Kids = node2.children
     node1Kids.zip(node2Kids).each do |pair|
@@ -83,35 +72,35 @@ module OcUtil
   module_function :sameNodes?
 
   #
-  # Sends a web request to Opencast, using the credentials defined at the top
+  # Sends a web request to Opencast
   #
+  # opencast: hash with OC :server, :user and :password
   # method: Http method, symbol (e.g. :get, :post)
   # url: ingest method, string (e.g. '/ingest/addPartialTrack')
   # timeout: seconds until request returns with a timeout, numeric
   # payload: information necessary for the request, hash
   #
   # return: The web request response
+  # raises: RequestError if the request fails
   #
-  def requestIngestAPI(server, user, password, method, url, timeout, payload, additionalErrorMessage="")
+  def requestIngestAPI(opencast, method, url, timeout, payload, additionalErrorMessage="")
     begin
       response = RestClient::Request.new(
         :method => method,
-        :url => server + url,
-        :user => user,
-        :password => password,
+        :url => opencast[:server] + url,
+        :user => opencast[:user],
+        :password => opencast[:password],
         :timeout => timeout,
         :payload => payload
       ).execute
-    rescue RestClient::Exception => e
-      BigBlueButton.logger.error(" A problem occured for request: #{url}")
-      BigBlueButton.logger.info( e)
-      BigBlueButton.logger.info( e.http_body)
-      BigBlueButton.logger.info( additionalErrorMessage)
-      exit 1
     rescue => e
-      BigBlueButton.logger.error("An unknown problem occured for request: #{url}")
-      BigBlueButton.logger.info(e)
-      exit 1
+      message = ["A problem occured for request #{url}: #{e.class}: #{e.message}"]
+      message.push(e.http_body.to_s) if e.is_a?(RestClient::Exception)
+      message.push(additionalErrorMessage) unless additionalErrorMessage.to_s.empty?
+      raise RequestError, message.join("\n")
+    ensure
+      # Close files passed as request bodies
+      payload.each_value { |value| value.close if value.is_a?(File) && !value.closed? } if payload.is_a?(Hash)
     end
 
     return response

@@ -36,3 +36,12 @@ seriesWritePerm = ""
 # Whether a new series should be created if the given one does not exist yet
 # Default: false
 createNewSeriesIfItDoesNotYetExist = true
+
+
+# Logging
+[logging]
+# Log level: "debug", "info", "warn" or "error"
+# "debug" additionally logs the full data sent to and received from Opencast, like
+# mediapackages, metadata and ACLs. These may contain personal data, e.g. user ids and names.
+# Default: "info"
+level = "info"

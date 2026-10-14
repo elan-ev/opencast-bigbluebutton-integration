@@ -18,8 +18,7 @@ module OcDublincore
   #
   # return: array of hashes
   #
-  def getDcMetadataDefinition(metadata, useSharedNotesForDescriptionFallback, passIdentifierAsDcSource,
-                              meetingStartTime, meetingEndTime)
+  def getDcMetadataDefinition(metadata, passIdentifierAsDcSource, meetingStartTime, meetingEndTime)
     dc_metadata_definition = []
     dc_metadata_definition.push( { :symbol   => :title,
                                   :fullName => "opencast-dc-title",
@@ -44,8 +43,7 @@ module OcDublincore
                                   :fallback => nil})
     dc_metadata_definition.push( { :symbol   => :description,
                                   :fullName => "opencast-dc-description",
-                                  :fallback => useSharedNotesForDescriptionFallback ?
-                                               sharedNotesToString(SHARED_NOTES_PATH) : nil})
+                                  :fallback => nil})
     dc_metadata_definition.push( { :symbol   => :spatial,
                                   :fullName => "opencast-dc-spatial",
                                   :fallback => "BigBlueButton"})
@@ -84,24 +82,21 @@ module OcDublincore
   # To that end, OC API requests may be required.
   #
   # metadata: hash (string => string)
-  # useSharedNotesForDescriptionFallback: bool
-  # passIdentifierAsDcSource: bool
+  # passIdentifierAsDcSource: bool, also pass the given identifier as dcterms:source
   # **args:
   # startTime: optional, unixtime. Fallback for the start time of the recording
-  # endTime: optional, unixtime. Fallback for the end time of the recording
-  # server: optional, string. OC server address
-  # user: optional, string. OC user name
-  # password: optional, string. OC user password
+  # stopTime: optional, unixtime. Fallback for the end time of the recording
+  # opencast: optional, hash with OC :server, :user and :password
   #
   # return hash (symbol => object)
   #
-  def parseDcMetadata(metadata, getSeriesMetadata=false, useSharedNotesForDescriptionFallback=false, passIdentifierAsDcSource=false, **args)
+  def parseDcMetadata(metadata, passIdentifierAsDcSource: false, **args)
     # Cast keys to lowercase
-    metadata = OcUtil::keysLowerCase(metadata)
+    metadata = metadata.transform_keys(&:downcase)
 
     # Get an array of hashes for with key names and fallback values
-    dc_metadata_definition = getDcMetadataDefinition(metadata, useSharedNotesForDescriptionFallback,
-      passIdentifierAsDcSource, args[:startTime], args[:stopTime])
+    dc_metadata_definition = getDcMetadataDefinition(metadata, passIdentifierAsDcSource,
+      args[:startTime], args[:stopTime])
 
     # Get values for the given keys, or use fallback values of the key does not exist
     dc_data = {}
@@ -115,7 +110,7 @@ module OcDublincore
     end
 
     # Avoid using invalid or existing ids (to avoid ingest errors and accidental overwrites)
-    dc_data[:identifier] = checkEventIdentifier(dc_data[:identifier], args[:server], args[:user], args[:password])
+    dc_data[:identifier] = checkEventIdentifier(dc_data[:identifier], args[:opencast])
 
     return dc_data
   end
@@ -125,10 +120,12 @@ module OcDublincore
   # Checks if the given identifier is valid to be used for an Opencast event
   #
   # identifier: string, to be used as the UID for an Opencast event
+  # opencast: hash with OC :server, :user and :password
   #
   # Returns the identifier if it is valid, nil if not
   #
-  def checkEventIdentifier(identifier, oc_server, oc_user, oc_password)
+  def checkEventIdentifier(identifier, opencast)
+    oc_server, oc_user, oc_password = opencast.to_h.values_at(:server, :user, :password)
     # Check for nil & empty
     if identifier.to_s.empty? || !oc_server || !oc_user || !oc_password
       return nil
@@ -137,28 +134,30 @@ module OcDublincore
     # Check for UUID conformity
     uuid_regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     if !(identifier.to_s.downcase =~ uuid_regex)
-      BigBlueButton.logger.info( "OC_DUBLINCORE: The given identifier <#{identifier}> is not a valid UUID. Will be using generated UUID instead.")
+      BigBlueButton.logger.info("OC_DUBLINCORE: The given identifier <#{identifier}> is not a valid UUID. Will be using generated UUID instead.")
       return nil
     end
 
     # Check for existence in Opencast
-    existsInOpencast = true
+    # Only a 404 means the identifier is free. On any other error it is unknown whether the
+    # event exists, so do not risk overwriting it.
     begin
-      response = RestClient::Request.new(
+      RestClient::Request.new(
         :method => :get,
         :url => oc_server + "/api/events/" + identifier,
         :user => oc_user,
         :password => oc_password,
+        :timeout => 10,
       ).execute
-    rescue RestClient::Exception => e
-      existsInOpencast = false
-    end
-    if existsInOpencast
-      BigBlueButton.logger.info( "OC_DUBLINCORE: The given identifier <#{identifier}> already exists within Opencast. Will be using generated UUID instead.")
+    rescue RestClient::NotFound
+      return identifier
+    rescue => e
+      BigBlueButton.logger.warn("OC_DUBLINCORE: Could not check whether the given identifier <#{identifier}> already exists within Opencast (#{e}). Will be using generated UUID instead.")
       return nil
     end
 
-    return identifier
+    BigBlueButton.logger.info("OC_DUBLINCORE: The given identifier <#{identifier}> already exists within Opencast. Will be using generated UUID instead.")
+    return nil
   end
   private_module_function :checkEventIdentifier
 
