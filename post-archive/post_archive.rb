@@ -37,6 +37,7 @@ config_defaults = {
     passIdentifierAsDcSource: false,
     onlyIngestIfRecordButtonWasPressed: false,
     doNotConvertVideosAgain: false,
+    minimalDuration: 0,
   },
   monitoring: {
     monitorOpencastAfterIngest: false,
@@ -63,7 +64,10 @@ $config[:opencast].each do |oc_key, oc_value|
 end
 
 # Set defaults in case they were not configured
-$config = config_defaults.merge($config)
+# Merge per section, so that a configured section does not drop the defaults of its unset keys
+$config = config_defaults.merge($config) do |_section, defaults, configured|
+  defaults.is_a?(Hash) && configured.is_a?(Hash) ? defaults.merge(configured) : configured
+end
 
 ### Load configuration end
 
