@@ -467,7 +467,7 @@ def monitorOpencastWorkflow(ingestResponse, secondsBetweenChecks, secondsUntilGi
     elsif (state == "RUNNING" || state == "INSTANTIATED")
       BigBlueButton.logger.info( "Workflow for " + mediapackageID + " is " + state)
     else
-      BigBlueButton.logger.error(" Workflow for " + mediapackageID + " is in state + " + state + ", meaning it is neither running nor has it succeeded. Recording data for " + meetingId + " will not be cleaned up. Aborting...")
+      BigBlueButton.logger.error(" Workflow for " + mediapackageID + " is in state " + state + ", meaning it is neither running nor has it succeeded. Recording data for " + meetingId + " will not be cleaned up. Aborting...")
       exit 1
     end
 
@@ -815,7 +815,7 @@ end
 response = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                 :post, '/ingest/ingest/' + $config.dig(:opencast, :workflow), START_WORKFLOW_REQUEST_TIMEOUT,
                 { :mediaPackage => mediapackage },
-                "LOG ERROR Aborting ingest with BBB id " + meeting_id + "and OC id" + mediapackageId )
+                "LOG ERROR Aborting ingest with BBB id #{meeting_id} and OC id #{mediapackageId}")
 BigBlueButton.logger.info( response)
 
 ### Monitor Opencast
