@@ -89,7 +89,7 @@ meeting_metadata = BigBlueButton::Events.get_meeting_metadata("/var/bigbluebutto
 # Get events file handle
 doc = ''
 if(File.file?("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml"))
-  doc = Nokogiri::XML(File.open("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml"))
+  doc = Nokogiri::XML(File.read("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml"))
 else
   BigBlueButton.logger.error(": NO EVENTS.XML for recording" + meeting_id + "! Nothing to parse, aborting...")
   exit 1

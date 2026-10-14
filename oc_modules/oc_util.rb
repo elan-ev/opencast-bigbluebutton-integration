@@ -112,6 +112,9 @@ module OcUtil
       BigBlueButton.logger.error("An unknown problem occured for request: #{url}")
       BigBlueButton.logger.info(e)
       exit 1
+    ensure
+      # Close files passed as request bodies
+      payload.each_value { |value| value.close if value.is_a?(File) && !value.closed? } if payload.is_a?(Hash)
     end
 
     return response

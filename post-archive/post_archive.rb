@@ -592,7 +592,7 @@ meeting_metadata = tmp_metadata
 # Get events file handle
 doc = ''
 if(File.file?(xml_path))
-  doc = Nokogiri::XML(File.open(xml_path))
+  doc = Nokogiri::XML(File.read(xml_path))
 else
   BigBlueButton.logger.error(": NO EVENTS.XML for recording" + meeting_id + "! Nothing to parse, aborting...")
   exit 1
