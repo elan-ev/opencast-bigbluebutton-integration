@@ -131,15 +131,23 @@ end
 #
 def parseTimeStampsRecording(doc, eventName, recordingStart, recordingStop, real_end_time)
   # Parse timestamps for Recording
+  # Pair each start with the next stop, ignoring repeated starts and stops without a start
+  isRecording = false
   doc.xpath("//event[@eventname='#{eventName}']").each do |item|
+    timestamp = item.at_xpath("timestampUTC").content.to_i
     if item.at_xpath("status").content == "true"
-      recordingStart.push(item.at_xpath("timestampUTC").content.to_i)
+      next if isRecording
+      recordingStart.push(timestamp)
+      isRecording = true
     else
-      recordingStop.push(item.at_xpath("timestampUTC").content.to_i)
+      next unless isRecording
+      recordingStop.push(timestamp)
+      isRecording = false
     end
   end
 
-  if recordingStart.length > recordingStop.length
+  # Recording was still running when the meeting ended
+  if isRecording
     recordingStop.push(real_end_time)
   end
 
