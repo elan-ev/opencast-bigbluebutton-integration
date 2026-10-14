@@ -554,13 +554,7 @@ unless File.directory?(TMP_PATH)
 end
 
 # Convert metadata keys to lowercase
-# Transform_Keys is only available from ruby 2.5 onward :(
-#metadata = metadata.transform_keys(&:downcase)
-tmp_metadata = {}
-meeting_metadata.each do |key, value|
-  tmp_metadata["#{key.downcase}"] = meeting_metadata.delete("#{key}")
-end
-meeting_metadata = tmp_metadata
+meeting_metadata = meeting_metadata.transform_keys(&:downcase)
 
 ### Initialization end
 

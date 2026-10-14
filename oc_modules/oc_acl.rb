@@ -46,7 +46,7 @@ module OcAcl
   #
   def parseAclMetadata(metadata, acl_metadata_definition, defaultReadRoles = "", defaultWriteRoles = "")
     # Cast keys to lowercase
-    metadata = OcUtil::keysLowerCase(metadata)
+    metadata = metadata.transform_keys(&:downcase)
 
     acl_data = []
 
@@ -218,7 +218,7 @@ module OcAcl
     end
 
     # Cast keys to lowercase
-    meeting_metadata = OcUtil::keysLowerCase(meeting_metadata)
+    meeting_metadata = meeting_metadata.transform_keys(&:downcase)
 
     createSeriesId = meeting_metadata["opencast-dc-ispartof"]
     if (createSeriesId.to_s.empty?)

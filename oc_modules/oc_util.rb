@@ -8,20 +8,6 @@ module OcUtil
   end
 
   #
-  # Helper function: Convert metadata keys to lowercase
-  # Transform_Keys is only available from ruby 2.5 onward :(
-  #metadata = metadata.transform_keys(&:downcase)
-  #
-  private def keysLowerCase(oldHash)
-    newHash = {}
-    oldHash.each do |key, value|
-      newHash["#{key.downcase}"] = oldHash[key] #.delete("#{key}")
-    end
-    return newHash
-  end
-  module_function :keysLowerCase
-
-  #
   # Helper function that determines if the metadata in question exists
   #
   # metadata: hash (string => string)

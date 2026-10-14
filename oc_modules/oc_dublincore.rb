@@ -94,7 +94,7 @@ module OcDublincore
   #
   def parseDcMetadata(metadata, passIdentifierAsDcSource: false, **args)
     # Cast keys to lowercase
-    metadata = OcUtil::keysLowerCase(metadata)
+    metadata = metadata.transform_keys(&:downcase)
 
     # Get an array of hashes for with key names and fallback values
     dc_metadata_definition = getDcMetadataDefinition(metadata, passIdentifierAsDcSource,
