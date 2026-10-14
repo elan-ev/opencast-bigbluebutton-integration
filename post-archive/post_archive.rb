@@ -366,6 +366,32 @@ def createCuttingMarksJSONAtPath(path, recordingStart, recordingStop, real_start
 end
 
 #
+# Escapes text for use in a WebVTT cue
+# Removes empty lines, as they would end the cue, and escapes characters with a special meaning,
+# which also keeps the timing separator "-->" out of the text
+#
+def escapeVttText(text)
+  return text.to_s.lines.map(&:strip).reject(&:empty?).join("\n")
+    .gsub("&", "&amp;").gsub("<", "&lt;").gsub(">", "&gt;")
+end
+
+#
+# Converts a chat message from the events.xml to plain text
+# Newer BBB versions store messages as HTML
+#
+# message_node: Nokogiri node of the message
+#
+# return: string
+#
+def chatMessageToText(message_node)
+  # Use the text of the node, so that HTML stored as escaped text is parsed as well
+  fragment = Nokogiri::HTML::DocumentFragment.parse(message_node.text)
+  fragment.css("br").each { |br| br.replace("\n") }
+  fragment.css("p").each { |p| p.add_next_sibling("\n") }
+  return fragment.text.strip
+end
+
+#
 # Parses the chat messages from the events.xml into a webvtt subtitles file
 # TODO: Sanitize chat messages?
 #
@@ -406,16 +432,13 @@ def parseChat(doc, chatFilePath, realStartTime, recordingStart, recordingStop)
       if (chatTimestamp >= recordStartStamp.to_i and chatTimestamp <= recordStopStamp.to_i)
         chatSender =
           node.at_xpath("./sender")&.text ||
-          participants[node.at_xpath("./senderId")&.text] ||
-          ""
+          participants[node.at_xpath("./senderId")&.text]
 
         message_node = node.at_xpath("./message")
         next unless message_node
 
-        chatMessage = Nokogiri::HTML::DocumentFragment
-          .parse(message_node.inner_html)
-          .text
-          .strip
+        chatMessage = chatMessageToText(message_node)
+        next if chatMessage.empty?
 
         chatStart = Time.at((chatTimestamp - realStartTime) / 1000.0)
         chatMessages.push({sender: chatSender,
@@ -449,7 +472,9 @@ def parseChat(doc, chatFilePath, realStartTime, recordingStart, recordingStop)
   files.push("")
   chatMessages.each do |message|
     files.push(message[:startTime].utc.strftime(timeFormat).to_s + " --> " + message[:endTime].utc.strftime(timeFormat).to_s)
-    files.push(message[:sender] + ": " + message[:message])
+    text = escapeVttText(message[:message])
+    text = "#{escapeVttText(message[:sender])}: #{text}" unless message[:sender].to_s.strip.empty?
+    files.push(text)
     files.push("")
   end
 
