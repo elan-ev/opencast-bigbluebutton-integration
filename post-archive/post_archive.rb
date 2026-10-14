@@ -72,29 +72,6 @@ end
 ### Load configuration end
 
 #
-# Parse TimeStamps - Start and End Time
-#
-# doc: file handle
-#
-# return: start and end time of the conference in ms (Unix EPOC)
-#
-def getRealStartEndTimes(doc)
-  # Parse general time values | Stolen from bigbluebutton/record-and-playback/presentation/scripts/process/presentation.rb
-  # Times in ms
-  meeting_start = doc.xpath("//event")[0][:timestamp]
-  meeting_end = doc.xpath("//event").last()[:timestamp]
-
-  meeting_id = doc.at_xpath("//meeting")[:id]
-  real_start_time = meeting_id.split('-').last
-  real_end_time = (real_start_time.to_i + (meeting_end.to_i - meeting_start.to_i)).to_s
-
-  real_start_time = real_start_time.to_i
-  real_end_time = real_end_time.to_i
-
-  return real_start_time, real_end_time
-end
-
-#
 # Parse TimeStamps - All files and start times for a given event
 #
 # doc: file handle
@@ -609,7 +586,7 @@ else
 end
 
 # Get conference start and end timestamps in ms
-real_start_time, real_end_time = getRealStartEndTimes(doc)
+real_start_time, real_end_time = OcUtil::getRealStartEndTimes(doc)
 # Exit program if the recording was too short
 if (real_end_time - real_start_time) < ($config.dig(:miscellaneous, :minimalDuration) * 1000)
   BigBlueButton.logger.info( "Recording too short, aborting...")
