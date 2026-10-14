@@ -105,7 +105,7 @@ def parseTimeStamps(doc, eventName, resultArray, filePath)
     newItem["filename"] = item.at_xpath("filename").content.split('/').last
     newItem["timestamp"] = item.at_xpath("timestampUTC").content.to_i
     newItem["filepath"] = filePath
-    if !File.exists?(File.join(newItem["filepath"], newItem["filename"]))
+    if !File.exist?(File.join(newItem["filepath"], newItem["filename"]))
       next
     end
     resultArray.push(newItem)
@@ -162,7 +162,7 @@ def parseTimeStampsPresentation(doc, eventName, resultArray, filePath)
     newItem["timestamp"] = item.at_xpath("timestampUTC").content.to_i
     newItem["filepath"] = File.join(filePath, item.at_xpath("presentationName").content, "svgs")
     newItem["presentationName"] = item.at_xpath("presentationName").content
-    if !File.exists?(File.join(newItem["filepath"], newItem["filename"]))
+    if !File.exist?(File.join(newItem["filepath"], newItem["filename"]))
       next
     end
     resultArray.push(newItem)
@@ -199,7 +199,7 @@ def convertSlidesToVideo(presentationSlidesStart)
     dirname = File.join(TMP_PATH, item["presentationName"], "svgs")
     finalLocation = File.join(dirname, changeFileExtensionTo(item["filename"], "mp4"))
 
-    if (!File.exists?(finalLocation))
+    if (!File.exist?(finalLocation))
       # Create path to save conversion to
       unless File.directory?(dirname)
         FileUtils.mkdir_p(dirname)
@@ -243,7 +243,7 @@ def checkForTranscode(path, filename)
     return path
   end
 
-  if ($config.dig(:miscellaneous, :doNotConvertVideosAgain) && File.exists?(outputPathToFile))
+  if ($config.dig(:miscellaneous, :doNotConvertVideosAgain) && File.exist?(outputPathToFile))
     BigBlueButton.logger.info( "Converted video for #{pathToFile} already exists, skipping...")
     return outputPathToFile
   end
@@ -301,7 +301,7 @@ def collectFileInformation(tracks, flavor, startTimes, real_start_time)
 
     BigBlueButton.logger.info( "PathToFile: #{pathToFile}")
 
-    if (File.exists?(pathToFile))
+    if (File.exist?(pathToFile))
       # File Integrity check
       if (!FFMPEG::Movie.new(pathToFile).valid?)
         BigBlueButton.logger.info( "The file #{pathToFile} is ffmpeg-invalid and won't be ingested")
@@ -769,7 +769,7 @@ if ($config.dig(:addFiles, :presentationsAsPdf))
   presentationNames = presentationSlidesStart.map{|item| item["presentationName"]}.uniq
   presentationNames.each do |presentationName|
     presentationFilePath = File.join(PRESENTATION_PATH, presentationName, presentationName + ".pdf")
-    if (File.exists?(presentationFilePath))
+    if (File.exist?(presentationFilePath))
       mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                     :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
                     {:mediaPackage => mediapackage,

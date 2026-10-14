@@ -154,7 +154,7 @@ if (format == 'video')
                     :mediaPackage => mediapackage,
                     :body => File.open(published_video_files + '/video-0.m4v', 'rb') })
 else
-  if (File.exists?(published_presentation_files + '/video/webcams.webm') && meeting_metadata["opencast-add-webcams"] == 'true')
+  if (File.exist?(published_presentation_files + '/video/webcams.webm') && meeting_metadata["opencast-add-webcams"] == 'true')
     BigBlueButton.logger.info( "Found presenter video")
     mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                     :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
@@ -162,7 +162,7 @@ else
                       :mediaPackage => mediapackage,
                       :body => File.open(published_presentation_files + '/video/webcams.webm', 'rb') })
   end
-  if (File.exists?(published_presentation_files + '/deskshare/deskshare.webm'))
+  if (File.exist?(published_presentation_files + '/deskshare/deskshare.webm'))
     BigBlueButton.logger.info( "Found presentation video")
     mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                     :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
