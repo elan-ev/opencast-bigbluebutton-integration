@@ -254,7 +254,7 @@ def checkForTranscode(path, filename)
 
   if ($config.dig(:miscellaneous, :doNotConvertVideosAgain) && File.exist?(outputPathToFile))
     BigBlueButton.logger.info( "Converted video for #{pathToFile} already exists, skipping...")
-    return outputPathToFile
+    return File.dirname(outputPathToFile)
   end
 
   # Gather possible commands
