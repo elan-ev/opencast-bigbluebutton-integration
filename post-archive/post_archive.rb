@@ -260,6 +260,10 @@ def checkForTranscode(path, filename)
   # Gather possible commands
   transcodeCommands = []
   movie = FFMPEG::Movie.new(pathToFile)
+  if (!movie.valid? || movie.width.nil? || movie.height.nil?)
+    BigBlueButton.logger.info( "Video #{pathToFile} is invalid or has no video stream, skipping...")
+    return path
+  end
   unless (movie.width % 2 == 0 && movie.height % 2 == 0)
     BigBlueButton.logger.info( "Video #{pathToFile} requires cropping to be DivBy2")
     transcodeCommands.push(%w(-y -r 30 -vf crop=trunc(iw/2)*2:trunc(ih/2)*2))
