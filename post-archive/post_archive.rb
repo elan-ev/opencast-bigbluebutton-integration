@@ -439,7 +439,7 @@ def monitorOpencastWorkflow(ingestResponse, secondsBetweenChecks, secondsUntilGi
     sleep(secondsBetweenChecks)
 
     # Request check
-    response = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+    response = OcUtil::requestIngestAPI($config[:opencast],
                 :get, '/workflow/instance/' + workflowID + '.xml', DEFAULT_REQUEST_TIMEOUT, {},
                 "There has been a problem in OC with the workflow for mediapackage " + mediapackageID + " for BBB recording " + meetingId + ". Aborting..." )
 
@@ -640,7 +640,7 @@ BigBlueButton.logger.info( tracks)
 # Create metadata file dublincore
 dc_data = OcDublincore::parseDcMetadata(meeting_metadata, startTime: real_start_time, stopTime: real_end_time,
   passIdentifierAsDcSource: $config.dig(:miscellaneous, :passIdentifierAsDcSource),
-  server: $config.dig(:opencast, :server), user: $config.dig(:opencast, :user), password: $config.dig(:opencast, :password))
+  opencast: $config[:opencast])
 dublincore = OcDublincore::createDublincore(dc_data)
 BigBlueButton.logger.info( "Dublincore: \n" + dublincore.to_s)
 
@@ -655,8 +655,7 @@ end
 
 # Create series with given seriesId, if such a series does not yet exist
 if ($config.dig(:miscellaneous, :createNewSeriesIfItDoesNotYetExist))
-  OcAcl::createSeries(meeting_metadata,
-    $config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+  OcAcl::createSeries(meeting_metadata, $config[:opencast],
     $config.dig(:defaultRoles, :seriesReadPerm), $config.dig(:defaultRoles, :seriesWritePerm))
 end
 
@@ -671,10 +670,10 @@ end
 
 # Create Mediapackage
 if !dc_data[:identifier].to_s.empty?
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+  mediapackage = OcUtil::requestIngestAPI($config[:opencast],
                   :put, '/ingest/createMediaPackageWithID/' + dc_data[:identifier], DEFAULT_REQUEST_TIMEOUT,{})
 else
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+  mediapackage = OcUtil::requestIngestAPI($config[:opencast],
                   :get, '/ingest/createMediaPackage', DEFAULT_REQUEST_TIMEOUT, {})
 end
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
@@ -684,7 +683,7 @@ mediapackageId = doc.xpath("/*")[0].attr('id')
 # Add Partial Track
 tracks.each do |track|
   BigBlueButton.logger.info( "Track: " + track.to_s)
-  mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+  mediapackage = OcUtil::requestIngestAPI($config[:opencast],
                   :post, '/ingest/addPartialTrack', DEFAULT_REQUEST_TIMEOUT,
                   { :flavor => track[:flavor],
                     :startTime => track[:startTime],
@@ -693,13 +692,13 @@ tracks.each do |track|
   BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 end
 # Add dublincore
-mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+mediapackage = OcUtil::requestIngestAPI($config[:opencast],
                 :post, '/ingest/addDCCatalog', DEFAULT_REQUEST_TIMEOUT,
                 {:mediaPackage => mediapackage,
                  :dublinCore => dublincore })
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 # Add cutting marks
-mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+mediapackage = OcUtil::requestIngestAPI($config[:opencast],
                 :post, '/ingest/addCatalog', DEFAULT_REQUEST_TIMEOUT,
                 {:mediaPackage => mediapackage,
                  :flavor => CUTTING_MARKS_FLAVOR,
@@ -729,7 +728,7 @@ attachments.each do |description, enabled, path, flavor|
   elsif !File.file?(path)
     BigBlueButton.logger.info( "#{description} not found at #{path}, skipping.")
   else
-    mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+    mediapackage = OcUtil::requestIngestAPI($config[:opencast],
                     :post, '/ingest/addAttachment', DEFAULT_REQUEST_TIMEOUT,
                     {:mediaPackage => mediapackage,
                     :flavor => flavor,
@@ -740,7 +739,7 @@ end
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 
 # Ingest and start workflow
-response = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+response = OcUtil::requestIngestAPI($config[:opencast],
                 :post, '/ingest/ingest/' + $config.dig(:opencast, :workflow), START_WORKFLOW_REQUEST_TIMEOUT,
                 { :mediaPackage => mediapackage },
                 "LOG ERROR Aborting ingest with BBB id #{meeting_id} and OC id #{mediapackageId}")

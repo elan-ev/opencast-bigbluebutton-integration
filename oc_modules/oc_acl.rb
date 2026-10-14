@@ -209,9 +209,11 @@ module OcAcl
   # Will create a new series with the given Id, if such a series does not yet exist
   # Else will try to update the ACL of the series
   #
-  # createSeriesId: string, the UID for the new series
+  # meeting_metadata: hash (string => string), contains the series id as opencast-dc-ispartof
+  # opencast: hash with OC :server, :user and :password
   #
-  def createSeries(meeting_metadata, oc_server, oc_user, oc_password, defaultSeriesRolesWithReadPerm="", defaultSeriesRolesWithWritePerm="")
+  def createSeries(meeting_metadata, opencast, defaultSeriesRolesWithReadPerm="", defaultSeriesRolesWithWritePerm="")
+    oc_server, oc_user, oc_password = opencast.to_h.values_at(:server, :user, :password)
     if !oc_server || !oc_user || !oc_password
       BigBlueButton.logger.warn(" OC_ACL: Cannot create or update series: No credentials given.")
       return nil

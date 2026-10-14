@@ -86,9 +86,7 @@ module OcDublincore
   # **args:
   # startTime: optional, unixtime. Fallback for the start time of the recording
   # stopTime: optional, unixtime. Fallback for the end time of the recording
-  # server: optional, string. OC server address
-  # user: optional, string. OC user name
-  # password: optional, string. OC user password
+  # opencast: optional, hash with OC :server, :user and :password
   #
   # return hash (symbol => object)
   #
@@ -112,7 +110,7 @@ module OcDublincore
     end
 
     # Avoid using invalid or existing ids (to avoid ingest errors and accidental overwrites)
-    dc_data[:identifier] = checkEventIdentifier(dc_data[:identifier], args[:server], args[:user], args[:password])
+    dc_data[:identifier] = checkEventIdentifier(dc_data[:identifier], args[:opencast])
 
     return dc_data
   end
@@ -122,10 +120,12 @@ module OcDublincore
   # Checks if the given identifier is valid to be used for an Opencast event
   #
   # identifier: string, to be used as the UID for an Opencast event
+  # opencast: hash with OC :server, :user and :password
   #
   # Returns the identifier if it is valid, nil if not
   #
-  def checkEventIdentifier(identifier, oc_server, oc_user, oc_password)
+  def checkEventIdentifier(identifier, opencast)
+    oc_server, oc_user, oc_password = opencast.to_h.values_at(:server, :user, :password)
     # Check for nil & empty
     if identifier.to_s.empty? || !oc_server || !oc_user || !oc_password
       return nil

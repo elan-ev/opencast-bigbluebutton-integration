@@ -67,8 +67,9 @@ module OcUtil
   module_function :sameNodes?
 
   #
-  # Sends a web request to Opencast, using the credentials defined at the top
+  # Sends a web request to Opencast
   #
+  # opencast: hash with OC :server, :user and :password
   # method: Http method, symbol (e.g. :get, :post)
   # url: ingest method, string (e.g. '/ingest/addPartialTrack')
   # timeout: seconds until request returns with a timeout, numeric
@@ -76,13 +77,13 @@ module OcUtil
   #
   # return: The web request response
   #
-  def requestIngestAPI(server, user, password, method, url, timeout, payload, additionalErrorMessage="")
+  def requestIngestAPI(opencast, method, url, timeout, payload, additionalErrorMessage="")
     begin
       response = RestClient::Request.new(
         :method => method,
-        :url => server + url,
-        :user => user,
-        :password => password,
+        :url => opencast[:server] + url,
+        :user => opencast[:user],
+        :password => opencast[:password],
         :timeout => timeout,
         :payload => payload
       ).execute
