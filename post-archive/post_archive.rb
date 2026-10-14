@@ -202,10 +202,11 @@ end
 #
 # presentationSlidesStart: array of numerics
 #
-# return: presentationSlidesStart, with filenames now pointing to the new videos
+# return: presentationSlidesStart, with filenames now pointing to the new videos.
+#         Slides that could not be converted are left out.
 #
 def convertSlidesToVideo(presentationSlidesStart)
-  presentationSlidesStart.each do |item|
+  convertedSlides = presentationSlidesStart.select do |item|
     # Path to original svg
     originalLocation = File.join(item["filepath"], item["filename"])
     # Save conversion with similar path in tmp
@@ -223,20 +224,29 @@ def convertSlidesToVideo(presentationSlidesStart)
       pathToImage = File.join(dirname, changeFileExtensionTo(item["filename"], "png"))
       _stdout, stderr, status = Open3.capture3('rsvg-convert', originalLocation, '-f', image_format,
         '--width', '2560', '--background-color', 'white', '-o', pathToImage)
-      BigBlueButton.logger.error("rsvg-convert failed for #{originalLocation}: #{stderr}") unless status.success?
+      unless status.success?
+        BigBlueButton.logger.error("rsvg-convert failed for #{originalLocation}, skipping slide: #{stderr}")
+        next false
+      end
 
       # Convert to video
       # Scales the output to be divisible by 2
-      _stdout, stderr, status = Open3.capture3('ffmpeg', '-loglevel', 'quiet', '-nostdin', '-nostats', '-y', '-r', '30',
+      _stdout, stderr, status = Open3.capture3('ffmpeg', '-loglevel', 'error', '-nostdin', '-nostats', '-y', '-r', '30',
         '-i', pathToImage, '-vf', 'crop=trunc(iw/2)*2:trunc(ih/2)*2', finalLocation)
-      BigBlueButton.logger.error("ffmpeg failed for #{pathToImage}: #{stderr}") unless status.success?
+      unless status.success?
+        BigBlueButton.logger.error("ffmpeg failed for #{pathToImage}, skipping slide: #{stderr}")
+        # Do not reuse a partially written video in later runs
+        FileUtils.rm_f(finalLocation)
+        next false
+      end
     end
 
     item["filepath"] = dirname
     item["filename"] = finalLocation.split('/').last
+    true
   end
 
-  return presentationSlidesStart
+  return convertedSlides
 end
 
 #
