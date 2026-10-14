@@ -4,6 +4,7 @@ require 'nokogiri'        #XML-Parser
 require 'fileutils'       #Directory Creation
 require 'streamio-ffmpeg' #Accessing video information
 require 'toml-rb'         #Parse values from config file
+require 'open3'           #Running external commands
 require File.expand_path('../../../lib/recordandplayback', __FILE__)  # BBB Utilities
 
 require_relative 'oc_modules/oc_dublincore'
@@ -208,11 +209,15 @@ def convertSlidesToVideo(presentationSlidesStart)
       # Convert to png using command line tool rsvg-convert
       image_format = 'png'
       pathToImage = File.join(dirname, changeFileExtensionTo(item["filename"], "png"))
-      `rsvg-convert #{originalLocation} -f #{image_format} --width 2560 --background-color white -o #{pathToImage}`
+      stdout, stderr, status = Open3.capture3('rsvg-convert', originalLocation, '-f', image_format,
+        '--width', '2560', '--background-color', 'white', '-o', pathToImage)
+      BigBlueButton.logger.error("rsvg-convert failed for #{originalLocation}: #{stderr}") unless status.success?
 
       # Convert to video
       # Scales the output to be divisible by 2
-      system "ffmpeg -loglevel quiet -nostdin -nostats -y -r 30 -i #{pathToImage} -vf crop='trunc(iw/2)*2:trunc(ih/2)*2' #{finalLocation}"
+      stdout, stderr, status = Open3.capture3('ffmpeg', '-loglevel', 'quiet', '-nostdin', '-nostats', '-y', '-r', '30',
+        '-i', pathToImage, '-vf', 'crop=trunc(iw/2)*2:trunc(ih/2)*2', finalLocation)
+      BigBlueButton.logger.error("ffmpeg failed for #{pathToImage}: #{stderr}") unless status.success?
     end
 
     item["filepath"] = dirname
@@ -487,7 +492,8 @@ def cleanup(tmp_path, meeting_id)
   # TODO: Find a way to outsource this into a script that runs after all post_archive scripts have run successfully
   if ($config.dig(:cleanUp, :deleteIfSuccessful))
     BigBlueButton.logger.info( "Attempting to delete raw recording data for meeting #{meeting_id}")
-    system('sudo', 'bbb-record', '--delete', "#{meeting_id}") || raise('Failed to delete local recording')
+    stdout, stderr, status = Open3.capture3('sudo', 'bbb-record', '--delete', "#{meeting_id}")
+    raise("Failed to delete local recording: #{stderr}") unless status.success?
   end
 end
 
