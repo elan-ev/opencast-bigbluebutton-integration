@@ -56,8 +56,6 @@ module OcUtil
     if node1.text != node2.text
             return false
     end
-    node1Attrs = node1.attributes
-    node2Attrs = node2.attributes
     node1Kids = node1.children
     node2Kids = node2.children
     node1Kids.zip(node2Kids).each do |pair|

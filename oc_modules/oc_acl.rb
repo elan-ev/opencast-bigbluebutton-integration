@@ -229,7 +229,6 @@ module OcAcl
     BigBlueButton.logger.info( "OC_ACL: Attempting to create a new series...")
 
     # Acquire information about all series
-    seriesFromOc = []
     begin
       seriesFromOc = RestClient::Request.new(
         :method => :get,
@@ -271,7 +270,7 @@ module OcAcl
       BigBlueButton.logger.info( "OC_ACL: seriesAcl: " + seriesAcl.to_s)
 
       begin
-        response = RestClient::Request.new(
+        RestClient::Request.new(
           :method => :post,
           :url => oc_server + '/series/',
           :user => oc_user,
@@ -288,8 +287,6 @@ module OcAcl
     # Update Series ACL
     else
       BigBlueButton.logger.info( "OC_ACL: Updating series ACL...")
-      # seriesAcl = requestIngestAPI(:get, '/series/' + createSeriesId + '/acl.xml', DEFAULT_REQUEST_TIMEOUT, {})
-      seriesAcl = []
       begin
         seriesAcl = RestClient::Request.new(
           :method => :get,
@@ -307,7 +304,7 @@ module OcAcl
       if (roles.length > 0)
         updatedSeriesAcl = updateSeriesAcl(seriesAcl, roles)
         begin
-          response = RestClient::Request.new(
+          RestClient::Request.new(
             :method => :post,
             :url => oc_server + '/series/' + createSeriesId + '/accesscontrol',
             :user => oc_user,

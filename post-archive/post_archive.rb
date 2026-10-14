@@ -167,10 +167,6 @@ def changeFileExtensionTo(filename, extension)
   return "#{File.basename(filename, File.extname(filename))}.#{extension}"
 end
 
-# def makeEven(number)
-#   return number % 2 == 0 ? number : number + 1
-# end
-
 #
 # Convert SVGs to MP4s
 #
@@ -381,9 +377,7 @@ def parseChat(doc, chatFilePath, realStartTime, recordingStart, recordingStop)
       if (chatTimestamp >= recordStartStamp.to_i and chatTimestamp <= recordStopStamp.to_i)
         chatSender = node.xpath(".//sender")[0].text()
         chatMessage =  node.xpath(".//message")[0].text()
-        chatStart = Time.at((chatTimestamp - realStartTime) / 1000.0) #.utc.strftime(TIME_FORMAT)
-        #chatEnd = Time.at((chatTimestamp - realStartTime) / 1000.0) + 2
-        #chatEnd = chatEnd.utc.strftime(TIME_FORMAT)
+        chatStart = Time.at((chatTimestamp - realStartTime) / 1000.0)
         chatMessages.push({sender: chatSender,
           message: chatMessage,
           startTime: chatStart,
@@ -530,7 +524,6 @@ if ($config.dig(:miscellaneous, :skipProcessingIfNoSeriesIdSet))
 end
 
 # Variables
-mediapackage = ''
 tracks = []                   # Array of hashes[flavor, starttime, path]
 
 # Constants
@@ -563,13 +556,11 @@ meeting_metadata = meeting_metadata.transform_keys(&:downcase)
 #
 
 # Get events file handle
-doc = ''
-if(File.file?(xml_path))
-  doc = Nokogiri::XML(File.read(xml_path))
-else
+unless File.file?(xml_path)
   BigBlueButton.logger.error(": NO EVENTS.XML for recording" + meeting_id + "! Nothing to parse, aborting...")
   exit 1
 end
+doc = Nokogiri::XML(File.read(xml_path))
 
 # Get conference start and end timestamps in ms
 real_start_time, real_end_time = OcUtil::getRealStartEndTimes(doc)
@@ -713,7 +704,6 @@ mediapackage = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config
                 {:mediaPackage => mediapackage,
                  :flavor => CUTTING_MARKS_FLAVOR,
                  :body => File.open(CUTTING_JSON_PATH, 'rb')})
-                 #:body => File.open(File.join(archived_files, "cutting.json"), 'rb')})
 
 BigBlueButton.logger.info( "Mediapackage: \n" + mediapackage)
 # Add attachments: [description, enabled, path, flavor]

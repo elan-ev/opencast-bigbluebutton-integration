@@ -20,7 +20,6 @@
 # with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 #
 
-require "shellwords"
 require "optimist"
 require 'nokogiri'        #XML-Parser
 require 'toml-rb'
@@ -87,13 +86,11 @@ published_video_files = "/var/bigbluebutton/published/video/#{meeting_id}"
 meeting_metadata = BigBlueButton::Events.get_meeting_metadata("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml")
 
 # Get events file handle
-doc = ''
-if(File.file?("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml"))
-  doc = Nokogiri::XML(File.read("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml"))
-else
+unless File.file?("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml")
   BigBlueButton.logger.error(": NO EVENTS.XML for recording" + meeting_id + "! Nothing to parse, aborting...")
   exit 1
 end
+doc = Nokogiri::XML(File.read("/var/bigbluebutton/recording/raw/#{meeting_id}/events.xml"))
 
 # Get conference start and end timestamps in ms
 real_start_time, real_end_time = OcUtil::getRealStartEndTimes(doc)
@@ -200,7 +197,7 @@ end
 
 # Ingest and start workflow
 BigBlueButton.logger.info( "Uploading...")
-response = OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
+OcUtil::requestIngestAPI($config.dig(:opencast, :server), $config.dig(:opencast, :user), $config.dig(:opencast, :password),
                 :post, '/ingest/ingest/' + $config.dig(:opencast, :workflow), START_WORKFLOW_REQUEST_TIMEOUT,
                 { :mediaPackage => mediapackage },
                 "LOG ERROR Aborting ingest with BBB id #{meeting_id} and OC id #{mediapackageId}")
