@@ -117,3 +117,12 @@ monitorOpencastAfterIngest = false
 secondsBetweenChecks = 300
 # Fail-safe. Time in seconds until the process is terminated no matter what.
 secondsUntilGiveUpMax = 86400
+
+
+# Logging
+[logging]
+# Log level: "debug", "info", "warn" or "error"
+# "debug" additionally logs the full data sent to and received from Opencast, like
+# mediapackages, metadata and ACLs. These may contain personal data, e.g. user ids and names.
+# Default: "info"
+level = "info"

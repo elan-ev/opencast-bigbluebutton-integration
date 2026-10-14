@@ -215,7 +215,7 @@ module OcAcl
   def createSeries(meeting_metadata, opencast, defaultSeriesRolesWithReadPerm="", defaultSeriesRolesWithWritePerm="")
     oc_server, oc_user, oc_password = opencast.to_h.values_at(:server, :user, :password)
     if !oc_server || !oc_user || !oc_password
-      BigBlueButton.logger.warn(" OC_ACL: Cannot create or update series: No credentials given.")
+      BigBlueButton.logger.warn("OC_ACL: Cannot create or update series: No credentials given.")
       return nil
     end
 
@@ -224,11 +224,11 @@ module OcAcl
 
     createSeriesId = meeting_metadata["opencast-dc-ispartof"]
     if (createSeriesId.to_s.empty?)
-      BigBlueButton.logger.warn(" OC_ACL: Cannot create or update series: Metadata does not contain a seriesId.")
+      BigBlueButton.logger.warn("OC_ACL: Cannot create or update series: Metadata does not contain a seriesId.")
       return
     end
 
-    BigBlueButton.logger.info( "OC_ACL: Attempting to create a new series...")
+    BigBlueButton.logger.info("OC_ACL: Attempting to create a new series...")
 
     # Acquire information about all series
     begin
@@ -244,7 +244,7 @@ module OcAcl
         }
       ).execute
     rescue RestClient::Exception => e
-      BigBlueButton.logger.warn(" Could not acquire information about series, Exception #{e}")
+      BigBlueButton.logger.warn("OC_ACL: Could not acquire information about series, Exception #{e}")
       return
     end
 
@@ -254,7 +254,7 @@ module OcAcl
       seriesFromOc = JSON.parse(seriesFromOc)
       if (seriesFromOc.length() > 0)
         seriesExists = true
-        BigBlueButton.logger.info( "OC_ACL: Series already exists")
+        BigBlueButton.logger.info("OC_ACL: Series already exists")
       end
     rescue JSON::ParserError  => e
       BigBlueButton.logger.warn("OC_ACL: Could not parse series JSON, Exception #{e}")
@@ -262,14 +262,14 @@ module OcAcl
 
     # Create Series
     if (!seriesExists)
-      BigBlueButton.logger.info( "OC_ACL: Create a new series with ID " + createSeriesId)
+      BigBlueButton.logger.info("OC_ACL: Create a new series with ID #{createSeriesId}")
       # Create Series-DC
       seriesDcData = OcDublincore::parseSeriesDcMetadata(meeting_metadata)
       seriesDublincore = OcDublincore::createDublincore(seriesDcData)
       # Create Series-ACL
       seriesAcl = createSeriesAcl(parseSeriesAclMetadata(meeting_metadata, defaultSeriesRolesWithReadPerm,
                   defaultSeriesRolesWithWritePerm))
-      BigBlueButton.logger.info( "OC_ACL: seriesAcl: " + seriesAcl.to_s)
+      BigBlueButton.logger.debug("OC_ACL: seriesAcl: #{seriesAcl}")
 
       begin
         RestClient::Request.new(
@@ -282,13 +282,13 @@ module OcAcl
                         :override => false}
         ).execute
       rescue RestClient::Exception => e
-        BigBlueButton.logger.warn(" Something went wrong during series creation, Exception #{e}")
+        BigBlueButton.logger.warn("OC_ACL: Something went wrong during series creation, Exception #{e}")
         return
       end
 
     # Update Series ACL
     else
-      BigBlueButton.logger.info( "OC_ACL: Updating series ACL...")
+      BigBlueButton.logger.info("OC_ACL: Updating series ACL...")
       begin
         seriesAcl = RestClient::Request.new(
           :method => :get,
@@ -298,7 +298,7 @@ module OcAcl
           :payload => { }
         ).execute
       rescue RestClient::Exception => e
-        BigBlueButton.logger.warn(" OC_ACL: Something went wrong during series update, Exception #{e}")
+        BigBlueButton.logger.warn("OC_ACL: Something went wrong during series update, Exception #{e}")
         return
       end
       roles = parseSeriesAclMetadata(meeting_metadata, defaultSeriesRolesWithReadPerm, defaultSeriesRolesWithWritePerm)
@@ -315,12 +315,12 @@ module OcAcl
                           :override => false }
           ).execute
         rescue RestClient::Exception => e
-          BigBlueButton.logger.warn(" OC_ACL: Something went wrong during series update, Exception #{e}")
+          BigBlueButton.logger.warn("OC_ACL: Something went wrong during series update, Exception #{e}")
           return
         end
-        BigBlueButton.logger.info( "OC_ACL: Updated series ACL")
+        BigBlueButton.logger.info("OC_ACL: Updated series ACL")
       else
-        BigBlueButton.logger.info( "OC_ACL: Nothing to update ACL with")
+        BigBlueButton.logger.info("OC_ACL: Nothing to update ACL with")
       end
     end
   end
