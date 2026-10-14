@@ -285,10 +285,11 @@ def checkForTranscode(path, filename)
     end
 
     BigBlueButton.logger.info( "Start converting #{pathToFile} ...")
+    tmpPathToFile = File.join(outputPath, "tmp_#{filename}")
     transcodeCommands.each do | command |
       BigBlueButton.logger.info( "Running ffmpeg with options: #{command}")
-      movie.transcode(outputPath + 'tmp' + filename, command)
-      FileUtils.mv(outputPath + 'tmp' + filename, outputPathToFile)
+      movie.transcode(tmpPathToFile, command)
+      FileUtils.mv(tmpPathToFile, outputPathToFile)
       movie = FFMPEG::Movie.new(outputPathToFile)   # Further transcoding should happen on the new file
     end
 
