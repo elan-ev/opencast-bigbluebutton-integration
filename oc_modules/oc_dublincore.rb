@@ -18,8 +18,7 @@ module OcDublincore
   #
   # return: array of hashes
   #
-  def getDcMetadataDefinition(metadata, useSharedNotesForDescriptionFallback, passIdentifierAsDcSource,
-                              meetingStartTime, meetingEndTime)
+  def getDcMetadataDefinition(metadata, passIdentifierAsDcSource, meetingStartTime, meetingEndTime)
     dc_metadata_definition = []
     dc_metadata_definition.push( { :symbol   => :title,
                                   :fullName => "opencast-dc-title",
@@ -44,8 +43,7 @@ module OcDublincore
                                   :fallback => nil})
     dc_metadata_definition.push( { :symbol   => :description,
                                   :fullName => "opencast-dc-description",
-                                  :fallback => useSharedNotesForDescriptionFallback ?
-                                               sharedNotesToString(SHARED_NOTES_PATH) : nil})
+                                  :fallback => nil})
     dc_metadata_definition.push( { :symbol   => :spatial,
                                   :fullName => "opencast-dc-spatial",
                                   :fallback => "BigBlueButton"})
@@ -84,24 +82,23 @@ module OcDublincore
   # To that end, OC API requests may be required.
   #
   # metadata: hash (string => string)
-  # useSharedNotesForDescriptionFallback: bool
-  # passIdentifierAsDcSource: bool
+  # passIdentifierAsDcSource: bool, also pass the given identifier as dcterms:source
   # **args:
   # startTime: optional, unixtime. Fallback for the start time of the recording
-  # endTime: optional, unixtime. Fallback for the end time of the recording
+  # stopTime: optional, unixtime. Fallback for the end time of the recording
   # server: optional, string. OC server address
   # user: optional, string. OC user name
   # password: optional, string. OC user password
   #
   # return hash (symbol => object)
   #
-  def parseDcMetadata(metadata, getSeriesMetadata=false, useSharedNotesForDescriptionFallback=false, passIdentifierAsDcSource=false, **args)
+  def parseDcMetadata(metadata, passIdentifierAsDcSource: false, **args)
     # Cast keys to lowercase
     metadata = OcUtil::keysLowerCase(metadata)
 
     # Get an array of hashes for with key names and fallback values
-    dc_metadata_definition = getDcMetadataDefinition(metadata, useSharedNotesForDescriptionFallback,
-      passIdentifierAsDcSource, args[:startTime], args[:stopTime])
+    dc_metadata_definition = getDcMetadataDefinition(metadata, passIdentifierAsDcSource,
+      args[:startTime], args[:stopTime])
 
     # Get values for the given keys, or use fallback values of the key does not exist
     dc_data = {}

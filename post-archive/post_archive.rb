@@ -672,6 +672,7 @@ BigBlueButton.logger.info( tracks)
 
 # Create metadata file dublincore
 dc_data = OcDublincore::parseDcMetadata(meeting_metadata, startTime: real_start_time, stopTime: real_end_time,
+  passIdentifierAsDcSource: $config.dig(:miscellaneous, :passIdentifierAsDcSource),
   server: $config.dig(:opencast, :server), user: $config.dig(:opencast, :user), password: $config.dig(:opencast, :password))
 dublincore = OcDublincore::createDublincore(dc_data)
 BigBlueButton.logger.info( "Dublincore: \n" + dublincore.to_s)
