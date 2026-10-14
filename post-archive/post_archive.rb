@@ -474,7 +474,7 @@ def monitorOpencastWorkflow(ingestResponse, secondsBetweenChecks, secondsUntilGi
     # Fail-safe. End this process after some time has passed.
     secondsUntilGiveUpCounter += secondsBetweenChecks
     if ( secondsUntilGiveUpCounter >= secondsUntilGiveUpMax )
-      BigBlueButton.logger.error(" " + secondsUntilGiveUpMax.to_s + " seconds have passed since the mediapackage with id " + mediapackageID + " was ingested. Mercy killing process for recording " + meeting_id)
+      BigBlueButton.logger.error(" " + secondsUntilGiveUpMax.to_s + " seconds have passed since the mediapackage with id " + mediapackageID + " was ingested. Mercy killing process for recording " + meetingId)
       exit 1
     end
 
